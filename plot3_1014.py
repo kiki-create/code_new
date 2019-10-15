@@ -515,7 +515,6 @@ class Worker(object):
 
         self.clientsExecResult = self.net.updateClientVideo()
         allClientSNR = utils1.get_snr(self.clientsExecResult)
-        print("allClientSNR_type00", allClientSNR)
         buffer_s, buffer1_s,buffer2_s, buffer3_s, buffer4_s,\
         buffer_CR_a, buffer1_CR_a, buffer2_CR_a, buffer3_CR_a, buffer4_CR_a,\
         buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r, buffer_CR_r = [], [], [], [], [], [], [], [], [], [], [], [] ,[], [], []
@@ -587,9 +586,8 @@ class Worker(object):
 
                 # 将神经网络分配的CC，按路由器规则映射成真实的传输速率 CC_real type:list
                 disCC = [c1_CC, c2_CC, c3_CC, c4_CC]
-                print("disCC_type", disCC)  # list
-                print("allClientSNR_type", allClientSNR) # numpy.ndarray
                 CC_real = utils1.adjust_CC(disCC, allClientSNR)
+                print("CC_real: ", CC_real)
 
                 c1_action["CC"] = CC_real[0]
                 c2_action["CC"] = CC_real[1]
@@ -605,11 +603,10 @@ class Worker(object):
                 allClientsAction['c2'] = c2_action
                 allClientsAction['c3'] = c3_action
                 allClientsAction['c4'] = c4_action
-                print("allAction:", allClientsAction)
 
                 # update env_state according to the real_CC and bitrate choices
                 self.clientsExecResult = self.net.updateClientVideo(allClientsAction)
-                # 取出下一时刻的snr_dict
+                # 取出下一时刻的snr_dict9
                 allClientSNR = utils1.get_snr(self.clientsExecResult)
                 # Use window to record the info
                 windowInfo.append(copy.deepcopy(self.clientsExecResult))
@@ -637,16 +634,16 @@ class Worker(object):
                 if self.isPrint:
                     self.printMidInfo()
 
-                if total_step % 1 == 0:
-                    print("CC_client1: ", lib.CR_mapping[c1_CRList_d][0], lib.CR_mapping[c1_CRList_d][0] * options.serverCC)
-                    print("CC_client2: ", lib.CR_mapping[c2_CRList_d][0], lib.CR_mapping[c2_CRList_d][0] * capa2_all)
-                    print("CC_client3: ", lib.CR_mapping[c3_CRList_d][0], lib.CR_mapping[c3_CRList_d][0] * capa3_all)
-                    print("CC_client4: ", lib.CR_mapping[c4_CRList_d][0], lib.CR_mapping[c4_CRList_d][0] * capa4_all)
-                    print("-" * 30)   #
-                    print("Reso_client1: ", c1_CRList[1])
-                    print("Reso_client2: ", c2_CRList[1])
-                    print("Reso_client3: ", c3_CRList[1])
-                    print("Reso_client4: ", c4_CRList[1])
+                # if total_step % 1 == 0:
+                #     print("CC_client1: ", lib.CR_mapping[c1_CRList_d][0], lib.CR_mapping[c1_CRList_d][0] * options.serverCC)
+                #     print("CC_client2: ", lib.CR_mapping[c2_CRList_d][0], lib.CR_mapping[c2_CRList_d][0] * capa2_all)
+                #     print("CC_client3: ", lib.CR_mapping[c3_CRList_d][0], lib.CR_mapping[c3_CRList_d][0] * capa3_all)
+                #     print("CC_client4: ", lib.CR_mapping[c4_CRList_d][0], lib.CR_mapping[c4_CRList_d][0] * capa4_all)
+                #     print("-" * 30)   #
+                #     print("Reso_client1: ", c1_CRList[1])
+                #     print("Reso_client2: ", c2_CRList[1])
+                #     print("Reso_client3: ", c3_CRList[1])
+                #     print("Reso_client4: ", c4_CRList[1])
 
                 total_step += 1
                 if total_step % UPDATE_GLOBAL_ITER < 0:  # update global and assign to local net
@@ -662,11 +659,10 @@ class Worker(object):
 
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
                     CR_v_= SESS.run(self.AC.CR_v, feed_dict)
-                    print("CR_v_: ", CR_v_)
-                    print("buffer_CR1_r:", buffer_CR1_r)
-                    print("buffer_CR2_r:", buffer_CR2_r)
-                    print("buffer_CR3_r:", buffer_CR3_r)
-                    print("buffer_CR4_r:", buffer_CR4_r)
+
+                    print(
+                        " CR_v_:{:5.2f} |  buffer_CR1_r:{:5.2f}  |  buffer_CR2_r:{:5.2f}  |  buffer_CR3_r:{:5.2f} | buffer_CR4_r:{:5.2f}"
+                            .format(CR_v_, buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r))
 
                     CR_v_target = [[] for _ in range(options.HostNum)]
 
@@ -678,18 +674,6 @@ class Worker(object):
                             CR_v_target[h_index].append(value)
                         CR_v_target[h_index].reverse()
                     CR_v_target = np.array(CR_v_target).T
-
-
-                    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                    # batch_num = len(buffer_s)
-                    # # allENV = np.array(buffer_s).reshape((batch_num, 4 * ENV_DIMS_new))
-                    # # allCR = np.array(buffer_CR_a).reshape((batch_num, 4))
-                    #
-                    #
-                    # ENV1 = np.array(buffer_s[:0:]).reshape((batch_num, ENV_DIMS_new))
-                    # ENV2 = np.array(buffer_s[1]).reshape((batch_num, ENV_DIMS_new))
-                    # ENV3 = np.array(buffer_s[2]).reshape((batch_num, ENV_DIMS_new))
-                    # ENV4 = np.array(buffer_s[3]).reshape((batch_num, ENV_DIMS_new))
 
                     # *****************************************************************************************
                     ENV1 = buffer1_s
@@ -819,7 +803,6 @@ if __name__ == "__main__":
     COORD = tf.train.Coordinator()
     SESS.run(tf.global_variables_initializer())
     worker_threads = []
-    print("workers", workers)
     for worker in workers:
         job = lambda: worker.work()
         t = threading.Thread(target=job)

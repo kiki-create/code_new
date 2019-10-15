@@ -1,8 +1,5 @@
 import numpy as np
 
-disCC = [5, 5, 5, 15]
-snr = {'c1':  2, 'c2': 1.8, 'c3': 1.7, 'c4': 3}
-print("测试 2222")
 
 def adjust_CC(disCC, snr):
     """
@@ -49,5 +46,10 @@ def adjust_CC(disCC, snr):
 
 
 if __name__ == '__main__':
-   print(adjust_CC(disCC, snr))
+   B_max = 6 / np.log2(1+0.5)
+   B_avg = 6 / np.log2(1+2)
+   C = 15 * np.log2(3)
+   print(C)
+
+
 

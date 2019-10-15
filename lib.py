@@ -23,7 +23,7 @@ CR_mapping = [
     (0.6, 6),   (0.7, 6),   (0.8, 6),   (0.9, 6),   (1.0, 6)
 ]
 
-CR_mapping_index = [i for i in range(0,40)]
+CR_mapping_index = [i for i in range(0, 40)]
 
 
 frameDataSize = {

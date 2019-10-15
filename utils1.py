@@ -248,14 +248,14 @@ def adjust_CC(disCC, snr):
         disBW = {}  # 按照公式算的每个人的bw
         BW_rank = {}
         CC_real = []
-        for i in range(4):
+        for i in range(options.HostNum):
             disBW["c" + str(i + 1)] = (disCC[i] / np.log2(1 + snr["c" + str(i + 1)]))
             BW_rank["c" + str(i + 1)] = 1
         print("disBW", disBW)
         sorted_Snr = sorted(snr.items(), key=lambda x: x[1], reverse=True)  # 按照snr从高到低排序
         print("sorted_Snr", sorted_Snr)
-        totalBW = 20 - 4
-        for i in range(4):
+        totalBW = options.serverBW - options.HostNum
+        for i in range(options.HostNum):
             bw = disBW.get(sorted_Snr[i][0])
             # 在满足所有人要求的条件下，把多余的带宽均匀分给每个人
             if i == 3:
