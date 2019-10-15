@@ -2,7 +2,7 @@ import numpy as np
 
 disCC = [5, 5, 5, 15]
 snr = {'c1':  2, 'c2': 1.8, 'c3': 1.7, 'c4': 3}
-
+print("测试 是否能使用GitHub管理项目")
 
 def adjust_CC(disCC, snr):
     """
