@@ -64,8 +64,6 @@ class Buffer(object):
         else:
             return False
 
-
-
     def isEmpty(self):
         SegmentIndex = 0
         while len(self.data) > 2:

@@ -4,19 +4,18 @@
 
 """
 
+import copy
 import multiprocessing
 import threading
-import tensorflow as tf
-import numpy as np
+
 import matplotlib.pyplot as plt
-from mynet import myNet
+import numpy as np
+import tensorflow as tf
+
+import lib
 import utils1
 from config import options
-import lib
-import copy
-import utils2
-
-import scipy.io as sio
+from mynet import myNet
 
 np.random.seed(0)
 
@@ -514,14 +513,9 @@ class Worker(object):
         global GLOBAL_RUNNING_R, GLOBAL_EP  # GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
         total_step = 1  # iterations of this worker
 
-        # Store the train_data and train_label
-        allSNR = [[] for h_index in range(options.HostNum)]
-        # Start to simulate the video-downloading
         self.clientsExecResult = self.net.updateClientVideo()
-        allClientSNR = utils2.unitEnv_uni(self.clientsExecResult)
-        for h_index in range(options.HostNum):
-            allSNR[h_index] += allClientSNR[h_index].tolist()
-
+        allClientSNR = utils1.get_snr(self.clientsExecResult)
+        print("allClientSNR_type00", allClientSNR)
         buffer_s, buffer1_s,buffer2_s, buffer3_s, buffer4_s,\
         buffer_CR_a, buffer1_CR_a, buffer2_CR_a, buffer3_CR_a, buffer4_CR_a,\
         buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r, buffer_CR_r = [], [], [], [], [], [], [], [], [], [], [], [] ,[], [], []
@@ -557,21 +551,25 @@ class Worker(object):
                 c3_CRList, c3_CRList_d = self.AC.choose_CR_p(CR3_prob)
                 c4_CRList, c4_CRList_d = self.AC.choose_CR_p(CR4_prob)
 
-                capa2_all = options.serverCC - lib.CR_mapping[c1_CRList_d][0] * options.serverCC
-                capa3_all = capa2_all - lib.CR_mapping[c2_CRList_d][0] * capa2_all
-                capa4_all = capa3_all - lib.CR_mapping[c3_CRList_d][0] * capa3_all
+                # 神经网络分配的CC:
+                c1_CC = lib.CR_mapping[c1_CRList_d][0] * options.serverCC
+                c2_CC = lib.CR_mapping[c2_CRList_d][0] * options.serverCC
+                c3_CC = lib.CR_mapping[c3_CRList_d][0] * options.serverCC
+                c4_CC = lib.CR_mapping[c4_CRList_d][0] * options.serverCC
+
+                print("神经网络分配的CC:\n", "c1:", c1_CC, "c2:", c2_CC, "c3:", c3_CC, "c4:", c4_CC)
 
                 # add buffer info
                 capa1_prob = lib.CR_mapping[c1_CRList_d][0]
                 env[0][-1] = capa1_prob
 
-                capa2_prob = (lib.CR_mapping[c2_CRList_d][0] * capa2_all) / options.serverCC
+                capa2_prob = lib.CR_mapping[c2_CRList_d][0]
                 env[1][-1] = capa2_prob
 
-                capa3_prob = (lib.CR_mapping[c3_CRList_d][0] * capa3_all) / options.serverCC
+                capa3_prob = lib.CR_mapping[c3_CRList_d][0]
                 env[2][-1] = capa3_prob
 
-                capa4_prob = (lib.CR_mapping[c4_CRList_d][0] * capa4_all) / options.serverCC
+                capa4_prob = lib.CR_mapping[c4_CRList_d][0]
                 env[3][-1] = capa4_prob
 
                 allenv = np.concatenate([env[0], env[1], env[2], env[3]], axis=0)
@@ -581,41 +579,43 @@ class Worker(object):
                 buffer3_s.append(np.array(env[2]))
                 buffer4_s.append(np.array(env[3]))
 
-
-                # all_CRList_d = np.concatenate([c1_CRList_d, c2_CRList_d, c3_CRList_d, c4_CRList_d], 0)
                 buffer1_CR_a.append(c1_CRList_d)
                 buffer2_CR_a.append(c2_CRList_d)
                 buffer3_CR_a.append(c3_CRList_d)
                 buffer4_CR_a.append(c4_CRList_d)
-                # buffer_CR_a.append(all_CRList_d)   # todo
+                # buffer_CR_a.append(all_CRList_d)
 
+                # 将神经网络分配的CC，按路由器规则映射成真实的传输速率 CC_real type:list
+                disCC = [c1_CC, c2_CC, c3_CC, c4_CC]
+                print("disCC_type", disCC)  # list
+                print("allClientSNR_type", allClientSNR) # numpy.ndarray
+                CC_real = utils1.adjust_CC(disCC, allClientSNR)
 
-                c1_action["CC"] = lib.CR_mapping[c1_CRList_d][0] * options.serverCC
-                c2_action["CC"] = lib.CR_mapping[c2_CRList_d][0] * capa2_all
-                c3_action["CC"] = lib.CR_mapping[c3_CRList_d][0] * capa3_all
-                c4_action["CC"] = lib.CR_mapping[c4_CRList_d][0] * capa4_all
-
+                c1_action["CC"] = CC_real[0]
+                c2_action["CC"] = CC_real[1]
+                c3_action["CC"] = CC_real[2]
+                c4_action["CC"] = CC_real[3]
 
                 c1_action["RR"] = c1_CRList[1]
                 c2_action["RR"] = c2_CRList[1]
                 c3_action["RR"] = c3_CRList[1]
-                c4_action["RR"] = c4_CRList[1]
+                c3_action["RR"] = c4_CRList[1]
 
                 allClientsAction['c1'] = c1_action
                 allClientsAction['c2'] = c2_action
                 allClientsAction['c3'] = c3_action
                 allClientsAction['c4'] = c4_action
-                print("allAction:",allClientsAction)
-                # update env_state according to the CC and resolution choices
-                self.clientsExecResult = self.net.updateClientVideo(allClientsAction)
+                print("allAction:", allClientsAction)
 
+                # update env_state according to the real_CC and bitrate choices
+                self.clientsExecResult = self.net.updateClientVideo(allClientsAction)
+                # 取出下一时刻的snr_dict
+                allClientSNR = utils1.get_snr(self.clientsExecResult)
                 # Use window to record the info
                 windowInfo.append(copy.deepcopy(self.clientsExecResult))
                 if len(windowInfo) > 5:
                     del windowInfo[0]
 
-                # compute reward
-                # r = utils.reward_window(windowInfo)
                 ep_r_CR1,  ep_r_CR2, ep_r_CR3, ep_r_CR4 = utils1.reward_joint2(self.clientsExecResult)   # todo:reward_joint3
                 ep_r_CR = ep_r_CR1 + ep_r_CR2 + ep_r_CR3 + ep_r_CR4
                 buffer_CR1_r.append(ep_r_CR1)
@@ -628,7 +628,6 @@ class Worker(object):
                 rewardCRList[1].append(copy.deepcopy(ep_r_CR2))
                 rewardCRList[2].append(copy.deepcopy(ep_r_CR3))
                 rewardCRList[3].append(copy.deepcopy(ep_r_CR4))
-
 
                 capa2_all = options.serverCC - c1_CRList[0] * options.serverCC
                 capa3_all = capa2_all - c2_CRList[0] * capa2_all

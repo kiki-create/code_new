@@ -1,6 +1,8 @@
 # coding=utf-8
+"""
+提供一些对环境操作或设置reward的工具函数
+"""
 import numpy as np
-from operator import itemgetter
 from config import options
 
 buffer_reso = [[] for i in range(options.HostNum)]
@@ -10,9 +12,7 @@ buffer_RR = [[] for i in range(options.HostNum)]
 
 def env_state8(clientExecResult):
     env_state = []
-
     SNRList = [[] for i in range(options.HostNum)]
-
     BFpreList = [[] for i in range(options.HostNum)]
     BFcurList = [[] for i in range(options.HostNum)]
 
@@ -34,9 +34,6 @@ def env_state8(clientExecResult):
     meanSNR = SNR_array.mean(axis=1)
     for i in range(options.HostNum):
         SNRDict["c"+str(i)] = meanSNR[i]
-    # 将SNR排序
-    sortedSNR = sorted(SNRDict.items(), key=itemgetter(0))
-    # todo: 模拟路由器QoS控制
     # The info of buffer
     bf_pre_array = np.array(BFpreList)
     bf_cur_array = np.array(BFcurList)
@@ -76,13 +73,11 @@ def reward_joint3(ExecResult):
         for i in range(options.HostNum):
             del buffer_RR[i][0]
 
-
     all_fulltime = 0.0
     all_emptytime = 0.0
     qoe_list = [[] for _ in range(options.HostNum)]
     all_snr = [[] for _ in range(options.HostNum)]
     SNR = [[] for _ in range(options.HostNum)]
-
 
     for index in range(options.HostNum):
         clientName = 'c' + str(index + 1)
@@ -110,7 +105,6 @@ def reward_joint3(ExecResult):
         weighted_qoe = qoe
         qoe_list[index].append(weighted_qoe)
 
-
         all_fulltime += fullTime
         all_emptytime += emptyTime
 
@@ -135,6 +129,7 @@ def reward_joint3(ExecResult):
 
     return reward_cr1_uni, reward_cr2_uni, reward_cr3_uni, reward_cr4_uni
 
+
 def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime 限制
     reward_cr_max = 100.0
 
@@ -147,13 +142,11 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
         for i in range(options.HostNum):
             del buffer_RR[i][0]
 
-
     all_fulltime = 0.0
     all_emptytime = 0.0
     qoe_list = [[] for _ in range(options.HostNum)]
     all_snr = [[] for _ in range(options.HostNum)]
     SNR = [[] for _ in range(options.HostNum)]
-
 
     for index in range(options.HostNum):
         clientName = 'c' + str(index + 1)
@@ -182,18 +175,14 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
         SNR = np.array(SNRList)
         all_snr.append(SNR)
 
-
-
         qoe = 5 * disCC - fullTime * 1 - emptyTime * 5 - 2 * RR_var
         weighted_qoe = qoe * punish
         qoe_list[index].append(weighted_qoe)
-
 
         all_fulltime += fullTime
         all_emptytime += emptyTime
 
         S_reward[index] += weighted_qoe
-
 
     print("qoelist\n", qoe_list)
 
@@ -214,8 +203,90 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
     return reward_cr1_uni, reward_cr2_uni, reward_cr3_uni, reward_cr4_uni
 
 
+def unitEnv_uni(clientExecResult):
+    """
+    :param clientExecResult:
+    :return: 各个用户的snr list
+    """
+    SNRList = [[] for i in range(options.HostNum)]
 
+    for index in range(options.HostNum):
+        clientName = 'c' + str(index + 1)
+        clientInfo = clientExecResult[clientName]
+
+        for t in range(options.JudgeDuration):
+            # Normalize the SNR of channel
+            SNR = clientInfo.get(str(t)).get("SNR")
+            SNR_norm = SNR / options.maxSNR
+            SNRList[index].append(SNR_norm)
+
+    return np.array(SNRList)
+
+
+def get_snr(clientExecResult):
+    """
+    获取每个用户的snr
+    :param clientExecResult:
+    :return: 各个用户的snr dict
+    """
+    SNRList = {}
+    for index in range(options.HostNum):
+        clientName = 'c' + str(index + 1)
+        clientInfo = clientExecResult[clientName]
+        snr = clientInfo.get(str(0)).get("SNR")
+        SNRList[clientName] = snr
+    return SNRList
+
+
+def adjust_CC(disCC, snr):
+        """
+        根据带宽调整CC，模拟路由器带宽分配规则
+        :param disCC: 神经网络分配的CC list
+        :param snr: 用户的snr dictionary
+        :return: 每个用户的传输数据的实际速率
+        """
+        disBW = {}  # 按照公式算的每个人的bw
+        BW_rank = {}
+        CC_real = []
+        for i in range(4):
+            disBW["c" + str(i + 1)] = (disCC[i] / np.log2(1 + snr["c" + str(i + 1)]))
+            BW_rank["c" + str(i + 1)] = 1
+        print("disBW", disBW)
+        sorted_Snr = sorted(snr.items(), key=lambda x: x[1], reverse=True)  # 按照snr从高到低排序
+        print("sorted_Snr", sorted_Snr)
+        totalBW = 20 - 4
+        for i in range(4):
+            bw = disBW.get(sorted_Snr[i][0])
+            # 在满足所有人要求的条件下，把多余的带宽均匀分给每个人
+            if i == 3:
+                if totalBW + 1 > bw:
+                    BW_rank[sorted_Snr[i][0]] = bw
+                    redundant_bw = totalBW - bw + 1
+                    for i in range(4):
+                        BW_rank["c" + str(i + 1)] += redundant_bw / 4
+                    break
+                else:
+                    BW_rank[sorted_Snr[i][0]] = totalBW + 1
+                    break
+            if totalBW > 0:
+                if bw >= 1 and totalBW >= bw and bw <= 20 / 2:  # 不用对“分配”的BW处理的情况
+                    totalBW = totalBW - bw + 1  # +1 是把垫的1M补回来
+                    BW_rank[sorted_Snr[i][0]] = bw
+                    continue
+                else:
+                    if bw > 20 / 2 or bw > totalBW:
+                        bw = min(totalBW + 1, 20 / 2)
+                        totalBW = totalBW - bw + 1  # +1 是把垫的1M补回来
+                        BW_rank[sorted_Snr[i][0]] = bw
+                        continue
+            else:
+                break
+        print(BW_rank)
+        for i in range(4):
+            CC_real.append(BW_rank["c" + str(i + 1)] * np.log2(1 + snr["c" + str(i + 1)]))
+        return CC_real
 
 if __name__ == '__main__':
-    pre_action = [1.67 for i in range(options.HostNum)]
-    print(pre_action)
+    disCC = [20, 20, 20, 20]
+    snr = {"c1": 1, "c2": 2, "c3": 3, "c4": 4}
+    print(adjust_CC(disCC, snr))

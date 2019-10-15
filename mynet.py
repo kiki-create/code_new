@@ -6,12 +6,10 @@ Date: 2019/03/01
 mynet.py provides the class MyNet,
 which creates the customosized net-topo according to the need!
 """
-from node import Server, Client
-from video import Video
 from channel import Channel
 from config import options
-import numpy as np
-import lib
+from node import Server, Client
+from video import Video
 
 
 class myNet(object):
@@ -89,43 +87,10 @@ class myNet(object):
             capacityList = allClientChannelCapacity.get(clientName)
             clientObj.getChannel().setSlotCapacity(capacityList)
 
-    # def updateClientVideo(self, DistributionByAI={}):
-    #     """
-    #     Simulate to transport the video for each client
-    #     """
-    #     # 1. # Distribute the BW
-    #     for clientName, clientObj in self.clients.items():
-    #         # distribution result by the AI algorithm
-    #         clientDistributionByAI = DistributionByAI.get(clientName, {})
-    #
-    #         clientBW = clientDistributionByAI.get('BW', clientObj.channel.getChannelBW())
-    #         clientObj.getChannel().updateChannelBW(clientBW)
-    #
-    #     # 2. Simulate the Channel
-    #     self.updateClientChannelCapacity()
-    #
-    #     # 3. Execute the distribution scheme
-    #     clientsExecResult = {}
-    #     # Before Slot
-    #     for clientName, clientObj in self.clients.items():
-    #
-    #         # distribution result by the AI algorithm
-    #         clientDistributionByAI = DistributionByAI.get(clientName, {})
-    #         clientsExecResult[clientName] = clientObj.updateVideo(clientDistributionByAI)
-    #
-    #     # After Slot
-    #     # Check whether there are some non-alive clients
-    #     for clientName, clientObj in self.clients.items():
-    #         if clientObj.isalive is False:
-    #             # if not isalive, remove the client from clients and clientsExecResult
-    #             self.delClient(clientName)
-    #             clientsExecResult.pop(clientName)
-    #
-    #     return clientsExecResult
-
     def updateClientVideo(self, DistributionByAI={}):
         """
         Simulate to transport the video for each client
+
         """
         clientsExecResult = {}
         # Before Slot

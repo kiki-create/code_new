@@ -7,19 +7,17 @@ Critic网络代表网络的方向，若输出只为一维，则四个actor朝同
 
 """
 
-import multiprocessing
+import copy
 import threading
-import tensorflow as tf
-import numpy as np
+
 import matplotlib.pyplot as plt
-from mynet import myNet
+import numpy as np
+import tensorflow as tf
+
+import lib
 import utils1
 from config import options
-import lib
-import copy
-import utils2
-
-import scipy.io as sio
+from mynet import myNet
 
 np.random.seed(0)
 
@@ -507,7 +505,7 @@ class Worker(object):
         allSNR = [[] for h_index in range(options.HostNum)]
         # Start to simulate the video-downloading
         self.clientsExecResult = self.net.updateClientVideo()
-        allClientSNR = utils2.unitEnv_uni(self.clientsExecResult)
+        allClientSNR = utils1.unitEnv_uni(self.clientsExecResult)
         for h_index in range(options.HostNum):
             allSNR[h_index] += allClientSNR[h_index].tolist()
 
