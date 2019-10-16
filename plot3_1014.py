@@ -222,7 +222,6 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            # todo:
             CR1_uni = tf.nn.softmax(self.CR_l4, axis=1)
         CR1_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR1')
 
