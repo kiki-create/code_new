@@ -124,10 +124,6 @@ def reward_joint3(ExecResult):
     reward_cr2_uni = reward_cr2 / reward_cr_max
     reward_cr3_uni = reward_cr3 / reward_cr_max
     reward_cr4_uni = reward_cr4 / reward_cr_max
-    print("reward_cr1:", reward_cr1)
-    print("reward_cr2:", reward_cr2)
-    print("reward_cr3:", reward_cr3)
-    print("reward_cr4:", reward_cr4)
 
     return reward_cr1_uni, reward_cr2_uni, reward_cr3_uni, reward_cr4_uni
 
@@ -169,7 +165,6 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
             SNRList.append(clientInfo.get(str(t)).get("SNR"))
         SNRList_mean = np.mean(SNRList)  # 一个用户的一个时隙内的平均snr
         SNR.append(SNRList_mean)
-        print("SNR:", SNR)
         qoe = RR_uni * R_weight - fullTime/10 * fullTime_weight - emptyTime / 10 * emptyTime_weight - RR_var / 5 * RR_var_weight  # 每个人的QoE
         weighted_qoe = qoe * 1
         qoe_list.append(weighted_qoe)

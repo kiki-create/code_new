@@ -24,7 +24,7 @@ LOG_DIR = './log'
 N_WORKERS = multiprocessing.cpu_count()
 # N_WORKERS=1
 
-MAX_GLOBAL_EP = 1000  # the max iterations of global net
+MAX_GLOBAL_EP = 3 # the max iterations of global net
 GLOBAL_NET_SCOPE = 'Global_Net'
 UPDATE_GLOBAL_ITER = 10  # the global net update every UPDATE_GLOBAL_ITER steps
 GAMMA = 0.9
@@ -79,7 +79,7 @@ class A3Cnet(object):
 
                 self.CR_v_target = tf.placeholder(tf.float32, [None, 4], 'CR_Vtarget')
 
-                # ********************************* Net Model ***************************************
+                # *************************************************** Net Model ***************************************
                 # CR Actor-Net
                 self.CR1_prob, self.CR1_A_params = self._build_CR_Actor1(scope)
                 self.CR2_prob, self.CR2_A_params = self._build_CR_Actor2(scope)
@@ -89,7 +89,7 @@ class A3Cnet(object):
                 # CR Critic-Net
                 self.CR_v, self.CR_C_params = self._build_CR_Critic(scope)
 
-                # ************************* Loss CR1 *********************************************
+                # ****************************************** Loss CR1 *********************************************
                 self.CR1_v_target = self.CR_v_target[:, 0]
                 self.CR1_v = self.CR_v[:, 0]
                 self.CR1_td = tf.subtract(self.CR1_v_target, self.CR1_v, name='CR1_TD_error')
@@ -97,64 +97,43 @@ class A3Cnet(object):
                 #     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR1_td))
                 #     critic_loss.append(self.CR_C_loss)
 
-                with tf.name_scope('CR_A_loss'):
-                    self.CR1_log = tf.log(self.CR1_prob + 1e-2)
-                    self.CR1_hot = tf.one_hot(self.cr1_a, 40, dtype=tf.float32)
-                    self.CR1_log_hot = tf.log(self.CR1_prob + 1e-2) * tf.one_hot(self.cr1_a, 40, dtype=tf.float32)
+                with tf.name_scope('CR_A1_loss'):
                     self.CR1_log_prob = tf.reduce_sum(
                         tf.log(self.CR1_prob + 1e-2) * tf.one_hot(self.cr1_a, 40, dtype=tf.float32), axis=1)
-
                     self.CR1_exp_v = self.CR1_log_prob * tf.stop_gradient(self.CR1_td)
                     self.CR1_entropy = - tf.reduce_sum(self.CR1_prob * tf.log(self.CR1_prob + 1e-2), axis=1)
                     self.CR1_exp_v = ENTROPY_BETA * self.CR1_entropy - self.CR1_exp_v
                     self.CR1_A_loss = tf.reduce_sum(self.CR1_exp_v)
 
-                # with tf.name_scope('CR_local_grad'):
-                #     self.CR1_A_grads = tf.gradients(self.CR1_A_loss, self.CR1_A_params)
-                #     # self.CR_C_grads = tf.gradients(self.CR_C_loss, self.CR_C_params)
-
-                # ************************* Loss CR2*********************************************
+                # ********************************************** Loss CR2*********************************************
                 self.CR2_v_target = self.CR_v_target[:, 1]
                 self.CR2_v = self.CR_v[:, 1]
                 self.CR2_td = tf.subtract(self.CR2_v_target, self.CR2_v, name='CR2_TD_error')
-                # with tf.name_scope('CR_C_loss'):
-                #     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR2_td))
-                #     critic_loss.append(self.CR_C_loss)
 
-                with tf.name_scope('CR_A_loss'):
-                    self.CR2_log = tf.log(self.CR2_prob + 1e-2)
-                    self.CR2_hot = tf.one_hot(self.cr2_a, 40, dtype=tf.float32)
-                    self.CR2_log_hot = tf.log(self.CR2_prob + 1e-2) * tf.one_hot(self.cr2_a, 40, dtype=tf.float32)
+                with tf.name_scope('CR_A2_loss'):
                     self.CR2_log_prob = tf.reduce_sum(
                         tf.log(self.CR2_prob + 1e-2) * tf.one_hot(self.cr2_a, 40, dtype=tf.float32), axis=1)
-
                     self.CR2_exp_v = self.CR2_log_prob * tf.stop_gradient(self.CR2_td)
                     self.CR2_entropy = - tf.reduce_sum(self.CR2_prob * tf.log(self.CR2_prob + 1e-2), axis=1)
                     self.CR2_exp_v = ENTROPY_BETA * self.CR2_entropy - self.CR2_exp_v
                     self.CR2_A_loss = tf.reduce_sum(self.CR2_exp_v)
 
-                # with tf.name_scope('CR_local_grad'):
-                #     self.CR2_A_grads = tf.gradients(self.CR2_A_loss, self.CR2_A_params)
-                #     # self.CR_C_grads = tf.gradients(self.CR_C_loss, self.CR_C_params)
-
-                # ************************* Loss CR3*********************************************
+                # ********************************************** Loss CR3*********************************************
                 self.CR3_v_target = self.CR_v_target[:, 2]
                 self.CR3_v = self.CR_v[:, 2]
                 self.CR3_td = tf.subtract(self.CR3_v_target, self.CR3_v, name='CR3_TD_error')
 
-                with tf.name_scope('CR_A_loss'):
-                    self.CR3_log = tf.log(self.CR3_prob + 1e-2)
-                    self.CR3_hot = tf.one_hot(self.cr3_a, 40, dtype=tf.float32)
-                    self.CR3_log_hot = tf.log(self.CR3_prob + 1e-2) * tf.one_hot(self.cr3_a, 40, dtype=tf.float32)
+                with tf.name_scope('CR_A3_loss'):
                     self.CR3_log_prob = tf.reduce_sum(
                         tf.log(self.CR3_prob + 1e-2) * tf.one_hot(self.cr3_a, 40, dtype=tf.float32), axis=1)
-
+                    # policy loss
                     self.CR3_exp_v = self.CR3_log_prob * tf.stop_gradient(self.CR3_td)
+                    # Regularizaiton with Policy Entropy
                     self.CR3_entropy = - tf.reduce_sum(self.CR3_prob * tf.log(self.CR3_prob + 1e-2), axis=1)
                     self.CR3_exp_v = ENTROPY_BETA * self.CR3_entropy - self.CR3_exp_v
                     self.CR3_A_loss = tf.reduce_sum(self.CR3_exp_v)
 
-                # ************************* Loss CR4*********************************************
+                # ********************************************** Loss CR4*********************************************
                 self.CR4_v_target = self.CR_v_target[:, 3]
                 self.CR4_v = self.CR_v[:, 3]
                 self.CR4_td = tf.subtract(self.CR4_v_target, self.CR4_v, name='CR4_TD_error')
@@ -162,19 +141,15 @@ class A3Cnet(object):
                 #     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR4_td))
                 #     critic_loss.append(self.CR_C_loss)
 
-                with tf.name_scope('CR_A_loss'):
-                    self.CR4_log = tf.log(self.CR4_prob + 1e-2)
-                    self.CR4_hot = tf.one_hot(self.cr4_a, 40, dtype=tf.float32)
-                    self.CR4_log_hot = tf.log(self.CR4_prob + 1e-2) * tf.one_hot(self.cr4_a, 40, dtype=tf.float32)
+                with tf.name_scope('CR_A4_loss'):
                     self.CR4_log_prob = tf.reduce_sum(
                         tf.log(self.CR4_prob + 1e-2) * tf.one_hot(self.cr4_a, 40, dtype=tf.float32), axis=1)
-
                     self.CR4_exp_v = self.CR4_log_prob * tf.stop_gradient(self.CR4_td)
                     self.CR4_entropy = - tf.reduce_sum(self.CR4_prob * tf.log(self.CR4_prob + 1e-2), axis=1)
                     self.CR4_exp_v = ENTROPY_BETA * self.CR4_entropy - self.CR4_exp_v
                     self.CR4_A_loss = tf.reduce_sum(self.CR4_exp_v)
 
-                # ************************* Loss critic*********************************************
+                # ************************************************ Loss critic*****************************************
                 with tf.name_scope('CR_C_loss'):
                     self.CR_td = tf.subtract(self.CR_v_target, self.CR_v, name='CR_TD_error')
                     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR_td))
@@ -205,7 +180,6 @@ class A3Cnet(object):
                     self.update_CR3_A_params_op = OPT_CR_A.apply_gradients(zip(self.CR3_A_grads, globalAC.CR3_A_params))
                     self.update_CR4_A_params_op = OPT_CR_A.apply_gradients(zip(self.CR4_A_grads, globalAC.CR4_A_params))
                     self.update_CR_C_params_op = OPT_CR_C.apply_gradients(zip(self.CR_C_grads, globalAC.CR_C_params))
-
 
     def _build_CR_Actor1(self, scope):
         with tf.variable_scope('CR1'):
@@ -343,7 +317,6 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            # todo:
             CR3_uni = tf.nn.softmax(self.CR_l4, axis=1)
 
         CR3_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR3')
@@ -455,12 +428,10 @@ class A3Cnet(object):
         SESS.run([self.update_CR4_A_params_op, self.update_CR_C_params_op], feed_dict)
         SESS.run([self.pull_CR4_A_params_op, self.pull_CR_C_params_op], feed_dict)
 
-
     def choose_CR_p(self, actor_prob_op):
         CRList_d = np.random.choice(lib.CR_mapping_index, 1, p=actor_prob_op[0])
         CR = lib.CR_mapping[CRList_d[0]]
         return CR, CRList_d[0]
-
 
 
 class Worker(object):
@@ -474,6 +445,7 @@ class Worker(object):
     def printMidInfo(self):
         print('-=' * 25, "Slot", "=-" * 25)
 
+        # 最后100步存数据给matlab画图
         if GLOBAL_EP > MAX_GLOBAL_EP - 100:
              CC.append([])
              RR.append([])
@@ -506,21 +478,20 @@ class Worker(object):
                     .format(clientName, capa, reso, instantSNR_uni, int(fullTime), int(emptyTime), buffer.amount, buffer_pre, buffer_cur))
 
     def work(self):
-        global GLOBAL_RUNNING_R, GLOBAL_EP  # GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
+        global GLOBAL_RUNNING_R, GLOBAL_EP  #  GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
         total_step = 1  # iterations of this worker
-
+        # 先执行一步
         self.clientsExecResult = self.net.updateClientVideo()
         allClientSNR = utils1.get_snr(self.clientsExecResult)
-        buffer_s, buffer1_s,buffer2_s, buffer3_s, buffer4_s,\
+        buffer_s, buffer1_s, buffer2_s, buffer3_s, buffer4_s,\
         buffer_CR_a, buffer1_CR_a, buffer2_CR_a, buffer3_CR_a, buffer4_CR_a,\
-        buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r, buffer_CR_r = [], [], [], [], [], [], [], [], [], [], [], [] ,[], [], []
+        buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r, buffer_CR_r = [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         windowInfo = []
         rewardCRList = [[] for _ in range(options.HostNum)]
 
         # while not COORD.should_stop() and GLOBAL_EP < MAX_GLOBAL_EP:
         while GLOBAL_EP < MAX_GLOBAL_EP:
             # ep_r = 0  # the total reward of this episode
-
             while True:
                 allClientsAction = {}
                 c1_action = {}
@@ -552,7 +523,7 @@ class Worker(object):
                 c3_CC = lib.CR_mapping[c3_CRList_d][0] * options.serverCC
                 c4_CC = lib.CR_mapping[c4_CRList_d][0] * options.serverCC
 
-                print("神经网络分配的CC:\n", "c1:", c1_CC, "     c2:", c2_CC, "     c3:", c3_CC, "     c4:", c4_CC)
+                print("神经网络分配的CC:", "c1:", c1_CC, "\tc2:", c2_CC, "\tc3:", c3_CC, "\tc4:", c4_CC)
 
                 # add buffer info
                 capa1_prob = lib.CR_mapping[c1_CRList_d][0]
@@ -627,18 +598,8 @@ class Worker(object):
                 if self.isPrint:
                     self.printMidInfo()
 
-                # if total_step % 1 == 0:
-                #     print("CC_client1: ", lib.CR_mapping[c1_CRList_d][0], lib.CR_mapping[c1_CRList_d][0] * options.serverCC)
-                #     print("CC_client2: ", lib.CR_mapping[c2_CRList_d][0], lib.CR_mapping[c2_CRList_d][0] * capa2_all)
-                #     print("CC_client3: ", lib.CR_mapping[c3_CRList_d][0], lib.CR_mapping[c3_CRList_d][0] * capa3_all)
-                #     print("CC_client4: ", lib.CR_mapping[c4_CRList_d][0], lib.CR_mapping[c4_CRList_d][0] * capa4_all)
-                #     print("-" * 30)   #
-                #     print("Reso_client1: ", c1_CRList[1])
-                #     print("Reso_client2: ", c2_CRList[1])
-                #     print("Reso_client3: ", c3_CRList[1])
-                #     print("Reso_client4: ", c4_CRList[1])
-
                 total_step += 1
+
                 if total_step % UPDATE_GLOBAL_ITER < 0:  # update global and assign to local net
                     GLOBAL_EP += 1
                     break
@@ -653,8 +614,6 @@ class Worker(object):
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
                     CR_v_= SESS.run(self.AC.CR_v, feed_dict)
                     print("buffer_CR2_r: ", buffer_CR2_r)
-
-                    # print("buffer_CR1_r: %5.2f" % buffer_CR1_r, "buffer_CR2_r: %5.2f" % buffer_CR2_r, "buffer_CR3_r: %5.2f" % buffer_CR3_r, "buffer_CR4_r: %5.2f"% buffer_CR4_r)
 
                     CR_v_target = [[] for _ in range(options.HostNum)]
 
@@ -733,13 +692,12 @@ class Worker(object):
                     critic_loss.append(CR_C_loss)
                     print("CR_C_loss", CR_C_loss)
 
-                    # ************************************ Train *****************************************************
-                    time = 3   # todo
-                    for _ in range(time):
-                        self.AC.train_CR1(feed_dict_A1)
-                        self.AC.train_CR2(feed_dict_A2)
-                        self.AC.train_CR3(feed_dict_A3)
-                        self.AC.train_CR4(feed_dict_A4)
+                    # *************************************************** Train **********************************************************
+
+                    self.AC.train_CR1(feed_dict_A1)
+                    self.AC.train_CR2(feed_dict_A2)
+                    self.AC.train_CR3(feed_dict_A3)
+                    self.AC.train_CR4(feed_dict_A4)
 
                     rewardCRList = [[] for _ in range(options.HostNum)]
                     buffer_s, buffer1_s, buffer2_s, buffer3_s, buffer4_s, \

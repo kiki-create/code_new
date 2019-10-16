@@ -569,12 +569,10 @@ class Worker(object):
                 print("CR_prob", np.shape(CR_prob))  # (4,40)
                 print("buffer_CR_a", np.shape(buffer_CR_a))  # (9,4,40)
 
-
                 c1_action["CC"] = lib.CR_mapping[c1_CRList_d][0] * options.serverCC
                 c2_action["CC"] = lib.CR_mapping[c2_CRList_d][0] * capa2_all
                 c3_action["CC"] = lib.CR_mapping[c3_CRList_d][0] * capa3_all
                 c4_action["CC"] = lib.CR_mapping[c4_CRList_d][0] * capa4_all
-
 
                 c1_action["RR"] = c1_CRList[1]
                 c2_action["RR"] = c2_CRList[1]

@@ -94,10 +94,9 @@ class myNet(object):
         """
         clientsExecResult = {}
         # Before Slot
-        print("=" * 30, "step:", self.step, "=" * 30)
+        print("=" * 100, "step:", self.step, "=" * 100)
         self.step += 1
         for clientName, clientObj in self.clients.items():
-            print('*' * 20, clientName, '*' * 20)
             # distribution result by the AI algorithm
             clientDistributionByAI = DistributionByAI.get(clientName, {})
             clientsExecResult[clientName] = clientObj.updateVideo(clientDistributionByAI)
