@@ -18,7 +18,7 @@ class Channel(object):
     Class Channel is to sim the channel(wireless, wired? )
     """
 
-    def __init__(self, channelType='slow', initCC=2.5, initSNR=1.5): 
+    def __init__(self, channelType='slow', initCC=2.5, initSNR=1.5):
         self.type = channelType
         # Set the distriuted BW
         self.disCC = initCC

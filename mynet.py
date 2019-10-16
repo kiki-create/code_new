@@ -24,7 +24,7 @@ class myNet(object):
     def createNetTopo(self):
         # 1 Create the Server
         self.server = Server(name="Server")
-        initSNR = [2.79, 1.43, 0.56, 0.5]
+        initSNR = [1.8, 1.43, 1, 0.9]
         # 2 Create the clients
         resoList = [6, 4, 2, 1]
         for i in range(self.hostNum):

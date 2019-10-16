@@ -33,7 +33,7 @@ parser.add_option("-n", "--hostnum", action="store", type="int", dest="HostNum",
 parser.add_option("--totalCC", action="store", type="int", dest="serverCC",
                 default=23, help="The CC of central-server referred to 802.11g")
 
-parser.add_option("--totalBW", action="store", type="int", dest="serverCC",
+parser.add_option("--totalBW", action="store", type="int", dest="serverBW",
                 default=15, help="The CC of central-server referred to 802.11g")
 
 parser.add_option("--bufferSize", action="store", type="int", dest="bufferSize",

@@ -9,6 +9,11 @@ buffer_reso = [[] for i in range(options.HostNum)]
 buffer_CR = [[] for i in range(options.HostNum)]
 buffer_RR = [[] for i in range(options.HostNum)]
 
+# 各QoE指标的权重因子
+R_weight = 3
+fullTime_weight = 0.5
+emptyTime_weight = 2
+RR_var_weight = 0.5
 
 def env_state8(clientExecResult):
     env_state = []
@@ -64,7 +69,6 @@ def env_state8(clientExecResult):
 def reward_joint3(ExecResult):
     reward_cr_max = 100.0
 
-    S_reward = [0.0 for _ in range(options.HostNum)]
     if len(buffer_CR[0]) >= 6:   # 存之前的5段历史
         for i in range(options.HostNum):
             del buffer_CR[i][0]
@@ -108,8 +112,6 @@ def reward_joint3(ExecResult):
         all_fulltime += fullTime
         all_emptytime += emptyTime
 
-        S_reward[index] += weighted_qoe
-
 
     print("qoelist\n", qoe_list)
 
@@ -131,9 +133,8 @@ def reward_joint3(ExecResult):
 
 
 def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime 限制
-    reward_cr_max = 100.0
+    reward_cr_max = 1.0
 
-    S_reward = [0.0 for _ in range(options.HostNum)]
     if len(buffer_CR[0]) >= 6:   # 存之前的5段历史
         for i in range(options.HostNum):
             del buffer_CR[i][0]
@@ -144,9 +145,8 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
 
     all_fulltime = 0.0
     all_emptytime = 0.0
-    qoe_list = [[] for _ in range(options.HostNum)]
-    all_snr = [[] for _ in range(options.HostNum)]
-    SNR = [[] for _ in range(options.HostNum)]
+    qoe_list = []
+    SNR = []
 
     for index in range(options.HostNum):
         clientName = 'c' + str(index + 1)
@@ -156,7 +156,7 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
         fullTime = clientInfo.get('fullTime')
         disCC = clientInfo.get("disCC")
         RR_uni = clientInfo.get("reso") / 13
-        capa_percent = disCC / options.serverCC
+        capa_uni = disCC / options.serverCC
 
         buffer_RR[index].append(RR_uni)
         CR = (disCC, RR_uni)
@@ -164,43 +164,36 @@ def reward_joint2(ExecResult):    #  改最大和最小限制/加入emptytime �
         a = np.array(buffer_RR[index])
         RR_var = np.var(a)
 
-        if capa_percent < 0.1 or capa_percent > 0.5:
-            punish = 0.5
-        else:
-            punish = 1
-
         SNRList = []
         for t in range(options.JudgeDuration):
             SNRList.append(clientInfo.get(str(t)).get("SNR"))
-        SNR = np.array(SNRList)
-        all_snr.append(SNR)
+        SNRList_mean = np.mean(SNRList)  # 一个用户的一个时隙内的平均snr
+        SNR.append(SNRList_mean)
+        print("SNR:", SNR)
+        qoe = RR_uni * R_weight - fullTime/10 * fullTime_weight - emptyTime / 10 * emptyTime_weight - RR_var / 5 * RR_var_weight  # 每个人的QoE
+        weighted_qoe = qoe * 1
+        qoe_list.append(weighted_qoe)
 
-        qoe = 5 * disCC - fullTime * 1 - emptyTime * 5 - 2 * RR_var
-        weighted_qoe = qoe * punish
-        qoe_list[index].append(weighted_qoe)
-
+        # 所有用户的卡顿时间
         all_fulltime += fullTime
         all_emptytime += emptyTime
 
-        S_reward[index] += weighted_qoe
-
     print("qoelist\n", qoe_list)
 
-    qoeall = SNR[0] * qoe_list[0][-1] + SNR[1] * qoe_list[1][-1] + SNR[2] * qoe_list[2][-1] + SNR[3] * qoe_list[3][-1]
-    reward_cr1 = qoe_list[0][-1] + qoeall
-    reward_cr2 = qoe_list[1][-1] + qoeall
-    reward_cr3 = qoe_list[2][-1] + qoeall
-    reward_cr4 = qoe_list[3][-1] + qoeall
+    # qoeall = SNR[0] * qoe_list[0][-1] + SNR[1] * qoe_list[1][-1] + SNR[2] * qoe_list[2][-1] + SNR[3] * qoe_list[3][-1]
+    qoeall = SNR[0] / options.maxSNR * qoe_list[0] + SNR[1] / options.maxSNR * qoe_list[1] + SNR[2] / options.maxSNR * qoe_list[2] + SNR[3] / options.maxSNR * qoe_list[3]
+    reward_cr1 = qoe_list[0] + qoeall
+    reward_cr2 = qoe_list[1] + qoeall
+    reward_cr3 = qoe_list[2] + qoeall
+    reward_cr4 = qoe_list[3] + qoeall
     reward_cr1_uni = reward_cr1 / reward_cr_max
     reward_cr2_uni = reward_cr2 / reward_cr_max
     reward_cr3_uni = reward_cr3 / reward_cr_max
     reward_cr4_uni = reward_cr4 / reward_cr_max
-    print("reward_cr1:", reward_cr1)
-    print("reward_cr2:", reward_cr2)
-    print("reward_cr3:", reward_cr3)
-    print("reward_cr4:", reward_cr4)
 
-    return reward_cr1_uni, reward_cr2_uni, reward_cr3_uni, reward_cr4_uni
+    print("reward_cr1: ", reward_cr1, "\treward_cr2: ", reward_cr2, "\treward_cr3: ", reward_cr3, "\treward_cr4: ", reward_cr4, "\tqoeall: ", qoeall)
+
+    return reward_cr1_uni, reward_cr2_uni, reward_cr3_uni, reward_cr4_uni, qoeall
 
 
 def unitEnv_uni(clientExecResult):
@@ -251,9 +244,7 @@ def adjust_CC(disCC, snr):
         for i in range(options.HostNum):
             disBW["c" + str(i + 1)] = (disCC[i] / np.log2(1 + snr["c" + str(i + 1)]))
             BW_rank["c" + str(i + 1)] = 1
-        print("disBW", disBW)
         sorted_Snr = sorted(snr.items(), key=lambda x: x[1], reverse=True)  # 按照snr从高到低排序
-        print("sorted_Snr", sorted_Snr)
         totalBW = options.serverBW - options.HostNum
         for i in range(options.HostNum):
             bw = disBW.get(sorted_Snr[i][0])
@@ -263,27 +254,28 @@ def adjust_CC(disCC, snr):
                     BW_rank[sorted_Snr[i][0]] = bw
                     redundant_bw = totalBW - bw + 1
                     for i in range(4):
-                        BW_rank["c" + str(i + 1)] += redundant_bw / 4
+                        BW_rank["c" + str(i + 1)] += redundant_bw / options.HostNum
                     break
                 else:
                     BW_rank[sorted_Snr[i][0]] = totalBW + 1
                     break
             if totalBW > 0:
-                if bw >= 1 and totalBW >= bw and bw <= 20 / 2:  # 不用对“分配”的BW处理的情况
+                if bw >= 1 and totalBW >= bw and bw <= options.serverBW / 2:  # 不用对“分配”的BW处理的情况
                     totalBW = totalBW - bw + 1  # +1 是把垫的1M补回来
                     BW_rank[sorted_Snr[i][0]] = bw
                     continue
                 else:
-                    if bw > 20 / 2 or bw > totalBW:
-                        bw = min(totalBW + 1, 20 / 2)
+                    if bw > options.serverBW / 2 or bw > totalBW:
+                        bw = min(totalBW + 1, options.serverBW / 2)
                         totalBW = totalBW - bw + 1  # +1 是把垫的1M补回来
                         BW_rank[sorted_Snr[i][0]] = bw
                         continue
             else:
                 break
-        print(BW_rank)
-        for i in range(4):
-            CC_real.append(BW_rank["c" + str(i + 1)] * np.log2(1 + snr["c" + str(i + 1)]))
+        print("BW_rank: ", BW_rank)
+        for i in range(options.HostNum):
+            BW_rank
+            CC_real.append(round(BW_rank["c" + str(i + 1)] * np.log2(1 + snr["c" + str(i + 1)]), 3))
         return CC_real
 
 if __name__ == '__main__':

@@ -46,10 +46,9 @@ def adjust_CC(disCC, snr):
 
 
 if __name__ == '__main__':
-   B_max = 6 / np.log2(1+0.5)
-   B_avg = 6 / np.log2(1+2)
-   C = 15 * np.log2(3)
-   print(C)
-
+   print(np.var([1, 2, 4, 6, 1, 6]))
+   print(np.var([1, 2, 4, 6, 2, 4]))
+   print(np.var([1, 2, 4, 6, 1, 4]))
+   print(np.var([1, 2, 4, 6, 2, 6]))
 
 

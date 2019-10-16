@@ -13,10 +13,10 @@ import copy
 
 
 class Server(object):
-    def __init__(self, name, initChannelCapacity=1000, maxConnections=10):  # todo: initCC
+    def __init__(self, name, maxConnections=10):  # todo: initCC
         self.name = name
         self.maxConnections = maxConnections
-        self.ChannelCapacity = initChannelCapacity
+        # self.ChannelCapacity = initChannelCapacity
 
         # Information of clients
         self.clients = {}

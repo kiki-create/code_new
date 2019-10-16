@@ -174,10 +174,6 @@ class A3Cnet(object):
                     self.CR4_exp_v = ENTROPY_BETA * self.CR4_entropy - self.CR4_exp_v
                     self.CR4_A_loss = tf.reduce_sum(self.CR4_exp_v)
 
-                # with tf.name_scope('CR_local_grad'):
-                #     self.CR4_A_grads = tf.gradients(self.CR4_A_loss, self.CR4_A_params)
-                #     # self.CR_C_grads = tf.gradients(self.CR_C_loss, self.CR_C_params)
-
                 # ************************* Loss critic*********************************************
                 with tf.name_scope('CR_C_loss'):
                     self.CR_td = tf.subtract(self.CR_v_target, self.CR_v, name='CR_TD_error')
@@ -476,7 +472,7 @@ class Worker(object):
         self.AC = A3Cnet(name, globalAC)
 
     def printMidInfo(self):
-        print('-=' * 20, "Slot", "=-" * 20)
+        print('-=' * 25, "Slot", "=-" * 25)
 
         if GLOBAL_EP > MAX_GLOBAL_EP - 100:
              CC.append([])
@@ -556,7 +552,7 @@ class Worker(object):
                 c3_CC = lib.CR_mapping[c3_CRList_d][0] * options.serverCC
                 c4_CC = lib.CR_mapping[c4_CRList_d][0] * options.serverCC
 
-                print("神经网络分配的CC:\n", "c1:", c1_CC, "c2:", c2_CC, "c3:", c3_CC, "c4:", c4_CC)
+                print("神经网络分配的CC:\n", "c1:", c1_CC, "     c2:", c2_CC, "     c3:", c3_CC, "     c4:", c4_CC)
 
                 # add buffer info
                 capa1_prob = lib.CR_mapping[c1_CRList_d][0]
@@ -587,7 +583,6 @@ class Worker(object):
                 # 将神经网络分配的CC，按路由器规则映射成真实的传输速率 CC_real type:list
                 disCC = [c1_CC, c2_CC, c3_CC, c4_CC]
                 CC_real = utils1.adjust_CC(disCC, allClientSNR)
-                print("CC_real: ", CC_real)
 
                 c1_action["CC"] = CC_real[0]
                 c2_action["CC"] = CC_real[1]
@@ -597,12 +592,14 @@ class Worker(object):
                 c1_action["RR"] = c1_CRList[1]
                 c2_action["RR"] = c2_CRList[1]
                 c3_action["RR"] = c3_CRList[1]
-                c3_action["RR"] = c4_CRList[1]
+                c4_action["RR"] = c4_CRList[1]
 
                 allClientsAction['c1'] = c1_action
                 allClientsAction['c2'] = c2_action
                 allClientsAction['c3'] = c3_action
                 allClientsAction['c4'] = c4_action
+
+                print("allClientsAction: ", allClientsAction)
 
                 # update env_state according to the real_CC and bitrate choices
                 self.clientsExecResult = self.net.updateClientVideo(allClientsAction)
@@ -613,8 +610,8 @@ class Worker(object):
                 if len(windowInfo) > 5:
                     del windowInfo[0]
 
-                ep_r_CR1,  ep_r_CR2, ep_r_CR3, ep_r_CR4 = utils1.reward_joint2(self.clientsExecResult)   # todo:reward_joint3
-                ep_r_CR = ep_r_CR1 + ep_r_CR2 + ep_r_CR3 + ep_r_CR4
+                ep_r_CR1,  ep_r_CR2, ep_r_CR3, ep_r_CR4, ep_r_CR = utils1.reward_joint2(self.clientsExecResult)
+
                 buffer_CR1_r.append(ep_r_CR1)
                 buffer_CR2_r.append(ep_r_CR2)
                 buffer_CR3_r.append(ep_r_CR3)
@@ -625,10 +622,6 @@ class Worker(object):
                 rewardCRList[1].append(copy.deepcopy(ep_r_CR2))
                 rewardCRList[2].append(copy.deepcopy(ep_r_CR3))
                 rewardCRList[3].append(copy.deepcopy(ep_r_CR4))
-
-                capa2_all = options.serverCC - c1_CRList[0] * options.serverCC
-                capa3_all = capa2_all - c2_CRList[0] * capa2_all
-                capa4_all = capa3_all - c3_CRList[0] * capa3_all
 
                 # print the env info
                 if self.isPrint:
@@ -659,10 +652,9 @@ class Worker(object):
 
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
                     CR_v_= SESS.run(self.AC.CR_v, feed_dict)
+                    print("buffer_CR2_r: ", buffer_CR2_r)
 
-                    print(
-                        " CR_v_:{:5.2f} |  buffer_CR1_r:{:5.2f}  |  buffer_CR2_r:{:5.2f}  |  buffer_CR3_r:{:5.2f} | buffer_CR4_r:{:5.2f}"
-                            .format(CR_v_, buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r))
+                    # print("buffer_CR1_r: %5.2f" % buffer_CR1_r, "buffer_CR2_r: %5.2f" % buffer_CR2_r, "buffer_CR3_r: %5.2f" % buffer_CR3_r, "buffer_CR4_r: %5.2f"% buffer_CR4_r)
 
                     CR_v_target = [[] for _ in range(options.HostNum)]
 
@@ -787,16 +779,16 @@ if __name__ == "__main__":
         GLOBAL_AC = A3Cnet(GLOBAL_NET_SCOPE)
 
         workers = []
+        #
+        # for i in range(N_WORKERS-1):
+        #     i_name = 'Worker_%i' % i
+        #     if i == N_WORKERS - 2:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
+        #     else:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
 
-        for i in range(N_WORKERS-1):
-            i_name = 'Worker_%i' % i
-            if i == N_WORKERS - 2:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
-            else:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
-
-        # worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
-        # workers.append(worker)
+        worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
+        workers.append(worker)
 
     saver = tf.train.Saver(max_to_keep=1)
 
