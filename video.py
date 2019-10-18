@@ -68,10 +68,10 @@ class Buffer(object):
         SegmentIndex = 0
         while len(self.data) > 2:
             bufferSegment = self.data[SegmentIndex]
-            if bufferSegment[1] >= bufferSegment[0]:
+            if bufferSegment[1] >= bufferSegment[0]:  # 一帧图片
                 return False
             else:
-                del self.data[SegmentIndex]
+                del self.data[SegmentIndex]  # 不足一帧图片的数据丢弃
         assert len(self.data) == 2
         while SegmentIndex < len(self.data):
             bufferSegment = self.data[SegmentIndex]
@@ -79,7 +79,6 @@ class Buffer(object):
                 return False
             else:
                 SegmentIndex += 1
-
         return True
 
     def update(self, deltaDict):
@@ -91,9 +90,9 @@ class Buffer(object):
         # 1. Get the serial number of the timeUnit
         t = deltaDict.get("t")
         # 2. Adding data to the buffer
-        addDelta = deltaDict.get("increase")
-        self.data[-1][1] += addDelta
-        self.updateAmount()
+        addDelta = deltaDict.get("increase")  # 一个unit要增加的数据
+        self.data[-1][1] += addDelta  # 假数据
+        self.updateAmount()  # 更新buffer总量
         # 3. Getting the curFormat
         curResolution = deltaDict.get("curResolution")
         # 3. Get the state of the buffer
@@ -104,7 +103,7 @@ class Buffer(object):
         # 4. Play the video as usually
         playForamt = ""
         playAmount = 0.0
-        if deltaDict.get("isDecrease"):
+        if deltaDict.get("isDecrease"):  # 是否播放
             # print(deltaDict.get("isDecrease"))
             flag = True
             while len(self.data) > 2:
@@ -116,12 +115,11 @@ class Buffer(object):
                     flag = False
                     break
                 else:
-                    del self.data[0]
+                    del self.data[0]  # 丢弃
 
             segmentIndex = 0
             while flag:
                 bufferSegment = self.data[segmentIndex]
-
                 if bufferSegment[1] + 0.1 >= bufferSegment[0]:
                     self.data[segmentIndex][1] -= bufferSegment[0]
                     if self.data[segmentIndex][1] <= 0:

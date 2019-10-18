@@ -49,6 +49,7 @@ class Channel(object):
         self.capacityList = capacitylist
 
     def updateChannel(self):
+        # snr = self.updateSNR()  # 改变信道质量,暂时没打开
         capacity = self.disCC
         return capacity
 

@@ -19,26 +19,26 @@ from mynet import myNet
 
 np.random.seed(0)
 
-Debug = False
 LOG_DIR = './log'
 N_WORKERS = multiprocessing.cpu_count()
 # N_WORKERS=1
 
-MAX_GLOBAL_EP = 3 # the max iterations of global net
+MAX_GLOBAL_EP = 3000  # the max iterations of global net
 GLOBAL_NET_SCOPE = 'Global_Net'
 UPDATE_GLOBAL_ITER = 10  # the global net update every UPDATE_GLOBAL_ITER steps
 GAMMA = 0.9
 ENTROPY_BETA = 0.05
 
-LR_A = 0.01  # learning rate for actor
+LR_A = 0.005  # learning rate for actor
 LR_C = 0.01  # learning rate for critic
 
 GLOBAL_RUNNING_R = []  # total reward
 critic_loss = []
-GLOBAL_EP = 0
+GLOBAL_EP = 0  # 中央大脑的步数
 
-
+# 每个Actor观测值的个数
 ENV_DIMS_new = 8
+# 动作空间维数
 ACTION_DIMS = 40
 
 SNR_data_length = 10
@@ -93,9 +93,6 @@ class A3Cnet(object):
                 self.CR1_v_target = self.CR_v_target[:, 0]
                 self.CR1_v = self.CR_v[:, 0]
                 self.CR1_td = tf.subtract(self.CR1_v_target, self.CR1_v, name='CR1_TD_error')
-                # with tf.name_scope('CR_C_loss'):
-                #     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR1_td))
-                #     critic_loss.append(self.CR_C_loss)
 
                 with tf.name_scope('CR_A1_loss'):
                     self.CR1_log_prob = tf.reduce_sum(
@@ -103,7 +100,7 @@ class A3Cnet(object):
                     self.CR1_exp_v = self.CR1_log_prob * tf.stop_gradient(self.CR1_td)
                     self.CR1_entropy = - tf.reduce_sum(self.CR1_prob * tf.log(self.CR1_prob + 1e-2), axis=1)
                     self.CR1_exp_v = ENTROPY_BETA * self.CR1_entropy - self.CR1_exp_v
-                    self.CR1_A_loss = tf.reduce_sum(self.CR1_exp_v)
+                    self.CR1_A_loss = tf.reduce_mean(self.CR1_exp_v)
 
                 # ********************************************** Loss CR2*********************************************
                 self.CR2_v_target = self.CR_v_target[:, 1]
@@ -116,7 +113,7 @@ class A3Cnet(object):
                     self.CR2_exp_v = self.CR2_log_prob * tf.stop_gradient(self.CR2_td)
                     self.CR2_entropy = - tf.reduce_sum(self.CR2_prob * tf.log(self.CR2_prob + 1e-2), axis=1)
                     self.CR2_exp_v = ENTROPY_BETA * self.CR2_entropy - self.CR2_exp_v
-                    self.CR2_A_loss = tf.reduce_sum(self.CR2_exp_v)
+                    self.CR2_A_loss = tf.reduce_mean(self.CR2_exp_v)
 
                 # ********************************************** Loss CR3*********************************************
                 self.CR3_v_target = self.CR_v_target[:, 2]
@@ -131,15 +128,12 @@ class A3Cnet(object):
                     # Regularizaiton with Policy Entropy
                     self.CR3_entropy = - tf.reduce_sum(self.CR3_prob * tf.log(self.CR3_prob + 1e-2), axis=1)
                     self.CR3_exp_v = ENTROPY_BETA * self.CR3_entropy - self.CR3_exp_v
-                    self.CR3_A_loss = tf.reduce_sum(self.CR3_exp_v)
+                    self.CR3_A_loss = tf.reduce_mean(self.CR3_exp_v)
 
                 # ********************************************** Loss CR4*********************************************
                 self.CR4_v_target = self.CR_v_target[:, 3]
                 self.CR4_v = self.CR_v[:, 3]
                 self.CR4_td = tf.subtract(self.CR4_v_target, self.CR4_v, name='CR4_TD_error')
-                # with tf.name_scope('CR_C_loss'):
-                #     self.CR_C_loss = tf.reduce_sum(tf.square(self.CR4_td))
-                #     critic_loss.append(self.CR_C_loss)
 
                 with tf.name_scope('CR_A4_loss'):
                     self.CR4_log_prob = tf.reduce_sum(
@@ -147,12 +141,13 @@ class A3Cnet(object):
                     self.CR4_exp_v = self.CR4_log_prob * tf.stop_gradient(self.CR4_td)
                     self.CR4_entropy = - tf.reduce_sum(self.CR4_prob * tf.log(self.CR4_prob + 1e-2), axis=1)
                     self.CR4_exp_v = ENTROPY_BETA * self.CR4_entropy - self.CR4_exp_v
-                    self.CR4_A_loss = tf.reduce_sum(self.CR4_exp_v)
+                    self.CR4_A_loss = tf.reduce_mean(self.CR4_exp_v)
 
                 # ************************************************ Loss critic*****************************************
                 with tf.name_scope('CR_C_loss'):
                     self.CR_td = tf.subtract(self.CR_v_target, self.CR_v, name='CR_TD_error')
-                    self.CR_C_loss = tf.reduce_sum(tf.square(self.CR_td))
+                    self.CR_C_loss = tf.reduce_mean(tf.square(self.CR_td), axis=0)
+                    # self.CR_C_loss = tf.square(self.CR_td)
 
                 with tf.name_scope('CR_local_grad'):
                     self.CR1_A_grads = tf.gradients(self.CR1_A_loss, self.CR1_A_params)
@@ -183,7 +178,7 @@ class A3Cnet(object):
 
     def _build_CR_Actor1(self, scope):
         with tf.variable_scope('CR1'):
-            self.CR_l1 = tf.layers.dense(
+            A1_L1 = tf.layers.dense(
                 inputs=self.s1_CR,
                 units=512,
                 activation=tf.nn.tanh,
@@ -191,30 +186,30 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l1'
             )
-            self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
+            # self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
 
-            self.CR_l2 = tf.layers.dense(
-                inputs=self.CR_l1_bn,
+            A1_L2 = tf.layers.dense(
+                inputs=A1_L1,
                 units=128,
-                activation=tf.nn.tanh,
+                activation=tf.nn.tanh,  # [-1, 1]
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l2'
             )
-            self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
+            # self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
 
-            self.CR_l3 = tf.layers.dense(
-                inputs=self.CR_l2_bn,
+            A1_L3 = tf.layers.dense(
+                inputs=A1_L2,
                 units=64,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l3'
             )
-            self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
+            # self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
 
-            self.CR_l4 = tf.layers.dense(
-                inputs=self.CR_l3_bn,
+            A1_L4 = tf.layers.dense(
+                inputs=A1_L3,
                 units=40,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
@@ -222,14 +217,14 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            CR1_uni = tf.nn.softmax(self.CR_l4, axis=1)
+            CR1_uni = tf.nn.softmax(A1_L4, axis=1)
         CR1_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR1')
 
         return CR1_uni, CR1_params
 
     def _build_CR_Actor2(self, scope):
         with tf.variable_scope('CR2'):
-            self.CR_l1 = tf.layers.dense(
+            A2_l1 = tf.layers.dense(
                 inputs=self.s2_CR,
                 units=512,
                 activation=tf.nn.tanh,
@@ -237,30 +232,30 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l1'
             )
-            self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
+            # self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
 
-            self.CR_l2 = tf.layers.dense(
-                inputs=self.CR_l1_bn,
+            A2_l2 = tf.layers.dense(
+                inputs=A2_l1,
                 units=128,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l2'
             )
-            self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
+            # self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
 
-            self.CR_l3 = tf.layers.dense(
-                inputs=self.CR_l2_bn,
+            A2_l3 = tf.layers.dense(
+                inputs=A2_l2,
                 units=64,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l3'
             )
-            self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
+            # self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
 
-            self.CR_l4 = tf.layers.dense(
-                inputs=self.CR_l3_bn,
+            A2_l4 = tf.layers.dense(
+                inputs=A2_l3,
                 units=40,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
@@ -268,8 +263,7 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            # todo:
-            CR2_uni = tf.nn.softmax(self.CR_l4, axis=1)
+            CR2_uni = tf.nn.softmax(A2_l4, axis=1)
 
         CR2_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR2')
 
@@ -277,7 +271,7 @@ class A3Cnet(object):
 
     def _build_CR_Actor3(self, scope):
         with tf.variable_scope('CR3'):
-            self.CR_l1 = tf.layers.dense(
+            A3_l1 = tf.layers.dense(
                 inputs=self.s3_CR,
                 units=512,
                 activation=tf.nn.tanh,
@@ -285,30 +279,30 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l1'
             )
-            self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
+            # self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
 
-            self.CR_l2 = tf.layers.dense(
-                inputs=self.CR_l1_bn,
+            A3_l2 = tf.layers.dense(
+                inputs=A3_l1,
                 units=128,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l2'
             )
-            self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
+            # self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
 
-            self.CR_l3 = tf.layers.dense(
-                inputs=self.CR_l2_bn,
+            A3_l3 = tf.layers.dense(
+                inputs=A3_l2,
                 units=64,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l3'
             )
-            self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
+            # self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
 
-            self.CR_l4 = tf.layers.dense(
-                inputs=self.CR_l3_bn,
+            A3_l4 = tf.layers.dense(
+                inputs=A3_l3,
                 units=40,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
@@ -316,7 +310,7 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            CR3_uni = tf.nn.softmax(self.CR_l4, axis=1)
+            CR3_uni = tf.nn.softmax(A3_l4, axis=1)
 
         CR3_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR3')
 
@@ -324,7 +318,7 @@ class A3Cnet(object):
 
     def _build_CR_Actor4(self, scope):
         with tf.variable_scope('CR4'):
-            self.CR_l1 = tf.layers.dense(
+            A4_l1 = tf.layers.dense(
                 inputs=self.s4_CR,
                 units=512,
                 activation=tf.nn.tanh,
@@ -332,30 +326,30 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l1'
             )
-            self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
+            # self.CR_l1_bn = tf.layers.batch_normalization(inputs=self.CR_l1, training=True)
 
-            self.CR_l2 = tf.layers.dense(
-                inputs=self.CR_l1_bn,
+            A4_l2 = tf.layers.dense(
+                inputs=A4_l1,
                 units=128,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l2'
             )
-            self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
+            # self.CR_l2_bn = tf.layers.batch_normalization(inputs=self.CR_l2, training=True)
 
-            self.CR_l3 = tf.layers.dense(
-                inputs=self.CR_l2_bn,
+            A4_l3 = tf.layers.dense(
+                inputs=A4_l2,
                 units=64,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='CR_l3'
             )
-            self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
+            # self.CR_l3_bn = tf.layers.batch_normalization(inputs=self.CR_l3, training=True)
 
-            self.CR_l4 = tf.layers.dense(
-                inputs=self.CR_l3_bn,
+            A4_l4 = tf.layers.dense(
+                inputs=A4_l3,
                 units=40,
                 activation=tf.nn.tanh,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
@@ -363,7 +357,7 @@ class A3Cnet(object):
                 name='CR_l4'
             )
 
-            CR4_uni = tf.nn.softmax(self.CR_l4, axis=1)
+            CR4_uni = tf.nn.softmax(A4_l4, axis=1)
 
         CR4_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/CR4')
 
@@ -371,16 +365,15 @@ class A3Cnet(object):
 
     def _build_CR_Critic(self, scope):
         with tf.variable_scope('Critic_CR'):
-            inputs = tf.layers.batch_normalization(self.s_CR, training=True)
             l1 = tf.layers.dense(
-                inputs=inputs,
+                inputs=self.s_CR,
                 units=512,
                 activation=tf.nn.leaky_relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
                 name='l1'
             )
-
+            # C_l1_bn = tf.layers.batch_normalization(inputs=l1, training=True)
             l2 = tf.layers.dense(
                 inputs=l1,
                 units=128,
@@ -389,7 +382,7 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='l2'
             )
-
+            # C_l2_bn = tf.layers.batch_normalization(inputs=l2, training=True)
             l3 = tf.layers.dense(
                 inputs=l2,
                 units=16,
@@ -398,7 +391,7 @@ class A3Cnet(object):
                 bias_initializer=tf.constant_initializer(0.1),
                 name='l3'
             )
-
+            # C_l3_bn = tf.layers.batch_normalization(inputs=l3, training=True)
             v = tf.layers.dense(
                 inputs=l3,
                 units=4,
@@ -442,8 +435,7 @@ class Worker(object):
         self.AC = A3Cnet(name, globalAC)
 
     def printMidInfo(self):
-        print('-=' * 25, "Slot", "=-" * 25)
-
+        print('-=' * 50, "Slot of: ", self.name, "=-" * 50)
         # 最后100步存数据给matlab画图
         if GLOBAL_EP > MAX_GLOBAL_EP - 100:
              CC.append([])
@@ -477,7 +469,7 @@ class Worker(object):
                     .format(clientName, capa, reso, instantSNR_uni, int(fullTime), int(emptyTime), buffer.amount, buffer_pre, buffer_cur))
 
     def work(self):
-        global GLOBAL_RUNNING_R, GLOBAL_EP  #  GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
+        global GLOBAL_RUNNING_R, GLOBAL_EP  # GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
         total_step = 1  # iterations of this worker
         # 先执行一步
         self.clientsExecResult = self.net.updateClientVideo()
@@ -490,7 +482,7 @@ class Worker(object):
 
         # while not COORD.should_stop() and GLOBAL_EP < MAX_GLOBAL_EP:
         while GLOBAL_EP < MAX_GLOBAL_EP:
-            # ep_r = 0  # the total reward of this episode
+            ep_r_CR = 0  # the total reward of this episode
             while True:
                 allClientsAction = {}
                 c1_action = {}
@@ -558,6 +550,11 @@ class Worker(object):
                 c2_action["CC"] = CC_real[1]
                 c3_action["CC"] = CC_real[2]
                 c4_action["CC"] = CC_real[3]
+                #
+                # c1_action["CC"] = c1_CC
+                # c2_action["CC"] = c2_CC
+                # c3_action["CC"] = c3_CC
+                # c4_action["CC"] = c4_CC
 
                 c1_action["RR"] = c1_CRList[1]
                 c2_action["RR"] = c2_CRList[1]
@@ -568,8 +565,6 @@ class Worker(object):
                 allClientsAction['c2'] = c2_action
                 allClientsAction['c3'] = c3_action
                 allClientsAction['c4'] = c4_action
-
-                print("allClientsAction: ", allClientsAction)
 
                 # update env_state according to the real_CC and bitrate choices
                 self.clientsExecResult = self.net.updateClientVideo(allClientsAction)
@@ -612,19 +607,15 @@ class Worker(object):
 
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
                     CR_v_= SESS.run(self.AC.CR_v, feed_dict)
-                    print("buffer_CR2_r: ", buffer_CR2_r)
 
-                    CR_v_target = [[] for _ in range(options.HostNum)]
-
+                    CR_v_target = [[]]
                     for h_index in range(options.HostNum):
                         reward_CR_client = rewardCRList[h_index][::-1]
                         value = CR_v_[0, h_index]
                         for r in reward_CR_client:
                             value = r + GAMMA * value
-                            CR_v_target[h_index].append(value)
-                        CR_v_target[h_index].reverse()
-                    CR_v_target = np.array(CR_v_target).T
-
+                        CR_v_target[0].append(value)
+                    print("CR_v_target: ", CR_v_target, "\t\nCR_v_: ", CR_v_)
                     # *****************************************************************************************
                     ENV1 = buffer1_s
                     ENV2 = buffer2_s
@@ -688,8 +679,8 @@ class Worker(object):
                     print("CR4_A_loss:", CR4_A_loss)
 
                     CR_C_loss = SESS.run(self.AC.CR_C_loss, feed_dict_C)
-                    critic_loss.append(CR_C_loss)
                     print("CR_C_loss", CR_C_loss)
+                    critic_loss.append(CR_C_loss[0])
 
                     # *************************************************** Train **********************************************************
 
@@ -703,7 +694,6 @@ class Worker(object):
                     buffer_CR_a, buffer1_CR_a, buffer2_CR_a, buffer3_CR_a, buffer4_CR_a, \
                     buffer_CR1_r, buffer_CR2_r, buffer_CR3_r, buffer_CR4_r, buffer_CR_r= [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
 
-                    GLOBAL_EP += 1
                     if len(GLOBAL_RUNNING_R) == 0:  # record running episode reward
                         GLOBAL_RUNNING_R.append(ep_r_CR)
                     else:
@@ -713,7 +703,7 @@ class Worker(object):
                         "Ep:", GLOBAL_EP,
                         "| Ep_CR_r: %i" % GLOBAL_RUNNING_R[-1],
                     )
-
+                    GLOBAL_EP += 1
                     break
 
 
@@ -737,15 +727,15 @@ if __name__ == "__main__":
 
         workers = []
         #
-        # for i in range(N_WORKERS-1):
-        #     i_name = 'Worker_%i' % i
-        #     if i == N_WORKERS - 2:
-        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
-        #     else:
-        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
+        for i in range(N_WORKERS-1):
+            i_name = 'Worker_%i' % i
+            if i == N_WORKERS - 2:
+                workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
+            else:
+                workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
 
-        worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
-        workers.append(worker)
+        # worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
+        # workers.append(worker)
 
     saver = tf.train.Saver(max_to_keep=1)
 
@@ -764,6 +754,7 @@ if __name__ == "__main__":
     plt.plot(np.arange(len(GLOBAL_RUNNING_R)), GLOBAL_RUNNING_R, color="black")
     plt.xlabel('step')
     plt.ylabel('Total moving reward')
+
     plt.figure(2)
     plt.plot(np.arange(len(critic_loss)), critic_loss, color="red")
     # plt.plot(np.arange(len(GLOBAL_RUNNING_Reso_R)), GLOBAL_RUNNING_Reso_R, color="red")

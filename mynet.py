@@ -24,16 +24,16 @@ class myNet(object):
     def createNetTopo(self):
         # 1 Create the Server
         self.server = Server(name="Server")
-        initSNR = [1.8, 1.43, 1, 0.9]
+        initSNR = [1, 1, 1, 1]
         # 2 Create the clients
         resoList = [6, 4, 2, 1]
         for i in range(self.hostNum):
             # init_reso = resoList[np.random.randint(4)]
-            init_reso = resoList[i]
+            init_reso = resoList[0]
             # init_reso = resoList[len(resoList) - 1 - i]
             c = Client(name="c{}".format(i + 1),
                        channel=Channel(initCC=options.serverCC / 4, initSNR=initSNR[i]),
-                       video=Video(resolution=init_reso),
+                       video=Video(resolution=init_reso), bufferSize=100 * 6
                        )
             self.clients[c.name] = c
 
@@ -54,38 +54,38 @@ class myNet(object):
         else:
             print("The client to be del is no existing!")
 
-    def updateClientChannelCapacity(self):
-        """
-        Update the capacity of the client channel
-        :return:
-        """
-        # 1. Create a dict object to store the channelCapacity info
-        allClientChannelCapacity = {}
-        for index in range(options.HostNum):
-            clientName = 'c' + str(index + 1)
-            allClientChannelCapacity[clientName] = []
-        # 2. ergode the Slot
-        for t in range(options.JudgeDuration):
-            restCC = options.serverCC
-            for index in range(1, options.HostNum):
-                clientName = 'c' + str(index)
-                clientObj = self.getClient(name=clientName)
-                assert isinstance(clientObj, Client), "updateClientChannelCapacity get clientObj error"
-                capa = clientObj.getChannel().updateChannelCapacity()
-                allClientChannelCapacity.get(clientName).append(capa)
-                restCC -= capa
-
-            # Process the last client:d = 54 - a - b - c
-            clientName = 'c' + str(options.HostNum)
-            clientObj = self.getClient(name=clientName)
-            assert isinstance(clientObj, Client), "updateClientChannelCapacity get clientObj error"
-            capa = restCC
-            allClientChannelCapacity.get(clientName).append(capa)
-
-        # 3. Update the capacityList to the clientObj
-        for clientName, clientObj in self.clients.items():
-            capacityList = allClientChannelCapacity.get(clientName)
-            clientObj.getChannel().setSlotCapacity(capacityList)
+    # def updateClientChannelCapacity(self):
+    #     """
+    #     Update the capacity of the client channel
+    #     :return:
+    #     """
+    #     # 1. Create a dict object to store the channelCapacity info
+    #     allClientChannelCapacity = {}
+    #     for index in range(options.HostNum):
+    #         clientName = 'c' + str(index + 1)
+    #         allClientChannelCapacity[clientName] = []
+    #     # 2. ergode the Slot
+    #     for t in range(options.JudgeDuration):
+    #         restCC = options.serverCC
+    #         for index in range(1, options.HostNum):
+    #             clientName = 'c' + str(index)
+    #             clientObj = self.getClient(name=clientName)
+    #             assert isinstance(clientObj, Client), "updateClientChannelCapacity get clientObj error"
+    #             capa = clientObj.getChannel().updateChannelCapacity()
+    #             allClientChannelCapacity.get(clientName).append(capa)
+    #             restCC -= capa
+    #
+    #         # Process the last client:d = 54 - a - b - c
+    #         clientName = 'c' + str(options.HostNum)
+    #         clientObj = self.getClient(name=clientName)
+    #         assert isinstance(clientObj, Client), "updateClientChannelCapacity get clientObj error"
+    #         capa = restCC
+    #         allClientChannelCapacity.get(clientName).append(capa)
+    #
+    #     # 3. Update the capacityList to the clientObj
+    #     for clientName, clientObj in self.clients.items():
+    #         capacityList = allClientChannelCapacity.get(clientName)
+    #         clientObj.getChannel().setSlotCapacity(capacityList)
 
     def updateClientVideo(self, DistributionByAI={}):
         """

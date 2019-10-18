@@ -487,7 +487,6 @@ class A3Cnet(object):
     #     return CR, CRList_d[0]
 
 
-
 class Worker(object):
     def __init__(self, name, globalAC, isPrint=False):
         self.net = myNet()
@@ -495,7 +494,6 @@ class Worker(object):
         self.isPrint = isPrint
         self.name = name  # name of worker
         self.AC = A3Cnet(name, globalAC)
-
 
     def work(self):
         global GLOBAL_RUNNING_R, GLOBAL_EP  # GLOBAL_RUNNING_R is the reward of all workers, GLOBAL_EP is the total iterations of all workers
@@ -574,7 +572,6 @@ class Worker(object):
                 buffer3_s.append(np.array(env[2]))
                 buffer4_s.append(np.array(env[3]))
 
-
                 CR_prob = np.concatenate([CR1_prob, CR2_prob, CR3_prob, CR4_prob], 0)
                 buffer1_CR_a.append(CR1_prob)
                 buffer2_CR_a.append(CR2_prob)
@@ -585,12 +582,10 @@ class Worker(object):
                 print("CR_prob", np.shape(CR_prob))  # (4,40)
                 print("buffer_CR_a", np.shape(buffer_CR_a))  # (9,4,40)
 
-
                 c1_action["CC"] = lib.CR_mapping[c1_CRList_d][0] * options.serverCC
                 c2_action["CC"] = lib.CR_mapping[c2_CRList_d][0] * capa2_all
                 c3_action["CC"] = lib.CR_mapping[c3_CRList_d][0] * capa3_all
                 c4_action["CC"] = lib.CR_mapping[c4_CRList_d][0] * capa4_all
-
 
                 c1_action["RR"] = c1_CRList[1]
                 c2_action["RR"] = c2_CRList[1]
@@ -613,7 +608,7 @@ class Worker(object):
 
                 # compute reward
                 # r = utils.reward_window(windowInfo)
-                ep_r_CR1,  ep_r_CR2, ep_r_CR3, ep_r_CR4 = utils1.reward_joint3(self.clientsExecResult)   # todo:reward_joint3
+                ep_r_CR1,  ep_r_CR2, ep_r_CR3, ep_r_CR4 = utils1.reward_joint2(self.clientsExecResult)   # todo:reward_joint3
                 buffer_CR1_r.append(ep_r_CR1)
                 buffer_CR2_r.append(ep_r_CR2)
                 buffer_CR3_r.append(ep_r_CR3)
@@ -623,7 +618,6 @@ class Worker(object):
                 rewardCRList[1].append(copy.deepcopy(ep_r_CR2))
                 rewardCRList[2].append(copy.deepcopy(ep_r_CR3))
                 rewardCRList[3].append(copy.deepcopy(ep_r_CR4))
-
 
                 capa2_all = options.serverCC - CR1_prob[0] * options.serverCC
                 capa3_all = capa2_all - CR2_prob[0] * capa2_all

@@ -37,7 +37,7 @@ class Server(object):
 
 
 class Client(object):
-    def __init__(self, name, channel, video=None, bufferSize=30 * 6):
+    def __init__(self, name, channel, video=None, bufferSize = 30 * 6):
         self.name = name
         self.channel = channel
         self.video = video
@@ -74,13 +74,12 @@ class Client(object):
         Simulation: Transport the video to the client
         """
         assert isinstance(AIDistributionScheme, dict), "The type of AIDistributionScheme is unmatch!"
-
         # 1. Unpack the AIDistributionScheme by items
         clientCC = AIDistributionScheme.get('CC', self.channel.getCC())
         clientResolution = AIDistributionScheme.get("RR", self.video.curResolution)
 
         # 2. Execute the distribution scheme by AI
-        self.getChannel().setDisCC(clientCC)
+        self.getChannel().setDisCC(clientCC)  # 将信道容量设置成分配的C
         self.getVideo().updateResolution(clientResolution)
         self.getBuffer().data.append([clientResolution, 0])
 
@@ -99,21 +98,11 @@ class Client(object):
         emptyTime, fullTime = 0.0, 0.0
         pauseTime = 0  # options.pauseTime
 
-        tmp = self.buffer.data
         for t in range(options.JudgeDuration):
             clientUnitInfo = {}
             delta = {}
-
-            aa = self.buffer.data[-2][1]
-            if self.buffer.data[-2][1] > tmp[-2][1]:
-                a = 0
-                pass
-            if self.buffer.amount > 100:
-                a = 0
-                pass
-
             # 5.1 Update the bandWidth of Channel in time
-            timeUnitCapacity = self.getChannel().updateChannel()
+            timeUnitCapacity = self.getChannel().updateChannel()  # 改变snr
             clientUnitInfo['disCC'] = timeUnitCapacity
 
             # 5.2 Preprocess the buffer
@@ -137,7 +126,7 @@ class Client(object):
                 delta["bufferState"] = "empty"
                 delta["increase"] = timeUnitCapacity
                 delta["curResolution"] = clientResolution
-                delta["isDecrease"] = False
+                delta["isDecrease"] = False   # 是否播放
                 # 4. Update the videoAmountSlot
                 videoAmountSlot += timeUnitCapacity
 

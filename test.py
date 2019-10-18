@@ -46,9 +46,9 @@ def adjust_CC(disCC, snr):
 
 
 if __name__ == '__main__':
-   print(np.var([1, 2, 4, 6, 1, 6]))
-   print(np.var([1, 2, 4, 6, 2, 4]))
-   print(np.var([1, 2, 4, 6, 1, 4]))
-   print(np.var([1, 2, 4, 6, 2, 6]))
-
-
+    CR_v_target = [37.57125935054198, 37.71261051252253, 35.21042177810031, 25.078367973716976]
+    CR_v_ = [[1., 1., 1., 1.]]
+    td_error = 0
+    for i in range(len(CR_v_target)):
+        td_error += np.square(CR_v_target[i] - CR_v_[0][i])
+    print(td_error)
