@@ -33,8 +33,7 @@ class myNet(object):
             # init_reso = resoList[len(resoList) - 1 - i]
             c = Client(name="c{}".format(i + 1),
                        channel=Channel(initCC=options.serverCC / 4, initSNR=initSNR[i]),
-                       video=Video(resolution=init_reso), bufferSize=100 * 6
-                       )
+                       video=Video(resolution=init_reso), bufferSize=10 * 6)
             self.clients[c.name] = c
 
     def getClient(self, name):

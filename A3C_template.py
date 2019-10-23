@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 Game='CartPole-v0'
 N_workers=multiprocessing.cpu_count()    #独立玩家个体数为cpu数
-MAX_GLOBAL_EP=2000  #中央大脑最大回合数
+MAX_GLOBAL_EP=5  #中央大脑最大回合数
 GLOBALE_NET_SCOPE='Globale_Net' #中央大脑的名字
 UPDATE_GLOBALE_ITER=10   #中央大脑每N次提升一次
 GAMMA=0.9    #衰减度
@@ -59,7 +59,7 @@ class ACnet(object):     #这个class即可用于生产global net，也可生成
 
 
                 with tf.name_scope('a_loss'):    #计算actor网络的损失
-                    log_prob = tf.reduce_sum(tf.log(self.acts_prob +1e-5)*tf.one_hot(self.a_his,N_A,dtype=tf.float32),axis=1,keep_dims=True)
+                    log_prob = tf.reduce_sum(tf.log(self.acts_prob +1e-5)*tf.one_hot(self.a_his, N_A, dtype=tf.float32),axis=1,keep_dims=True)
                     #这里是矩阵乘法，目的是筛选出本batch曾进行的一系列选择的概率值，acts—prob类似于一个向量[0.3,0.8,0.5]，
                     #one—hot是在本次进行的的操作置位1，其他位置置为0，比如走了三次a—his为[1,0,3],N—A是4，则one—hot就是[[0,1,0,0],[1,0,0,0],[0,0,0,1]]
                     #相乘以后就是[[0,0.3,0,0],[0.8,0,0,0],[0,0,0,0.5]],log_prob就是计算这一系列选择的log值。
@@ -100,7 +100,7 @@ class ACnet(object):     #这个class即可用于生产global net，也可生成
 
 
     def update_global(self,feed_dict):    #定义更新global参数函数
-        SESS.run([self.update_a_op,self.update_c_op],feed_dict)    #分别更新actor和critic网络
+        SESS.run([self.update_a_op, self.update_c_op],feed_dict)    #分别更新actor和critic网络
 
     def pull_global(self):   #定义更新local参数函数
         SESS.run([self.pull_a_params_op,self.pull_c_params_op])
@@ -120,7 +120,7 @@ class Worker(object):
                                          #建立worker的AC网络
 
     def work(self):   #定义worker运行的的具体过程
-        global  GLOBALE_RUNNING_R,GLOBALE_EP   #两个全局变量，R是所有worker的总reward，ep是所有worker的总episode
+        global  GLOBALE_RUNNING_R, GLOBALE_EP   #两个全局变量，R是所有worker的总reward，ep是所有worker的总episode
         total_step=1                            #本worker的总步数
         buffer_s,buffer_a,buffer_r=[],[],[]    #state,action,reward的缓存
 
@@ -135,7 +135,6 @@ class Worker(object):
                     self.env.render()
 
                 a=self.AC.choose_action(s)    #将当前状态state传入AC网络选择动作action
-
                 s_,r,done,info=self.env.step(a)   #行动并获得新的状态和回报等信息
 
                 if done:r=-5    #如果结束了，reward给一个惩罚数
@@ -151,7 +150,6 @@ class Worker(object):
                         v_s_=0   #如果结束了，设定对未来的评价值为0
                     else:
                         v_s_=SESS.run(self.AC.v,feed_dict={self.AC.s:s_[np.newaxis,:]})[0,0]   #如果是中间步骤，则用AC网络分析下一个state的v评价
-
                     buffer_v_target=[]
                     for r in buffer_r[::-1]:    #将下一个state的v评价进行一个反向衰减传递得到每一步的v现实
                         v_s_=r + GAMMA* v_s_
@@ -159,7 +157,7 @@ class Worker(object):
                     buffer_v_target.reverse()    #反向后，得到本系列操作每一步的v现实(v-target)
 
                     buffer_s,buffer_a,buffer_v_target=np.vstack(buffer_s),np.vstack(buffer_a),np.vstack(buffer_v_target)
-
+                    # print("buffer_a:", buffer_a)
                     feed_dict={
                         self.AC.s:buffer_s,                 #本次走过的所有状态，用于计算v估计
                         self.AC.a_his:buffer_a,             #本次进行过的所有操作，用于计算a—loss

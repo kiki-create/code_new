@@ -1,7 +1,7 @@
 """
 此版改动：
-将神经网络输出的C 经过环境处理得到真实的C^
-
+所有Actor用统一的td_error更新
+Critic输出一维的V值
 """
 
 import copy
@@ -49,7 +49,7 @@ SNR_data_length = 10
 class A3Cnet(object):
     def __init__(self, scope, globalAC=None):
         self.s_CR = tf.placeholder(tf.float32, [None, 4 * ENV_DIMS_new], "allEnv")
-
+        self.C2C_var = tf.placeholder(tf.float32, [None, 1])
         if scope == GLOBAL_NET_SCOPE:  # create global network
             with tf.variable_scope(scope):
                 self.s1_CR = tf.placeholder(tf.float32, [None, ENV_DIMS_new], "Env1")
@@ -79,7 +79,7 @@ class A3Cnet(object):
                 self.cr3_a = tf.placeholder(tf.int32, [None], "action_cr3")
                 self.cr4_a = tf.placeholder(tf.int32, [None], "action_cr4")
 
-                self.CR_v_target = tf.placeholder(tf.float32, [None, 4], 'CR_Vtarget')
+                self.CR_v_target = tf.placeholder(tf.float32, [None, 1], 'CR_Vtarget')
 
                 # *************************************************** Net Model ***************************************
                 # CR Actor-Net
@@ -91,56 +91,46 @@ class A3Cnet(object):
                 # CR Critic-Net
                 self.CR_v, self.CR_C_params = self._build_CR_Critic(scope)
 
-                # ****************************************** Loss CR1 *********************************************
-                self.CR1_v_target = self.CR_v_target[:, 0]
-                self.CR1_v = self.CR_v[:, 0]
-                self.CR1_td = tf.subtract(self.CR1_v_target, self.CR1_v, name='CR1_TD_error')
+                # ****************************************** Loss ****************************************************
+
+                # 更新Actor和Critic的td error
+                self.CR_td = tf.subtract(self.CR_v_target, self.CR_v, name='CR_TD_error')
 
                 with tf.name_scope('CR_A1_loss'):
                     self.CR1_log_prob = tf.reduce_sum(
                         tf.log(self.CR1_prob + 1e-2) * tf.one_hot(self.cr1_a, ACTION_DIMS, dtype=tf.float32), axis=1)
-                    self.CR1_exp_v = self.CR1_log_prob * tf.stop_gradient(self.CR1_td)
+                    self.CR1_exp_v = self.CR1_log_prob * tf.stop_gradient(self.CR_td) * self.C2C_var
                     self.CR1_entropy = - tf.reduce_sum(self.CR1_prob * tf.log(self.CR1_prob + 1e-2), axis=1)
                     self.CR1_exp_v = ENTROPY_BETA * self.CR1_entropy - self.CR1_exp_v
                     self.CR1_A_loss = tf.reduce_mean(self.CR1_exp_v)
 
                 # ********************************************** Loss CR2*********************************************
-                self.CR2_v_target = self.CR_v_target[:, 1]
-                self.CR2_v = self.CR_v[:, 1]
-                self.CR2_td = tf.subtract(self.CR2_v_target, self.CR2_v, name='CR2_TD_error')
 
                 with tf.name_scope('CR_A2_loss'):
                     self.CR2_log_prob = tf.reduce_sum(
                         tf.log(self.CR2_prob + 1e-2) * tf.one_hot(self.cr2_a, ACTION_DIMS, dtype=tf.float32), axis=1)
-                    self.CR2_exp_v = self.CR2_log_prob * tf.stop_gradient(self.CR2_td)
+                    self.CR2_exp_v = self.CR2_log_prob * tf.stop_gradient(self.CR_td) * self.C2C_var
                     self.CR2_entropy = - tf.reduce_sum(self.CR2_prob * tf.log(self.CR2_prob + 1e-2), axis=1)
                     self.CR2_exp_v = ENTROPY_BETA * self.CR2_entropy - self.CR2_exp_v
                     self.CR2_A_loss = tf.reduce_mean(self.CR2_exp_v)
 
                 # ********************************************** Loss CR3*********************************************
-                self.CR3_v_target = self.CR_v_target[:, 2]
-                self.CR3_v = self.CR_v[:, 2]
-                self.CR3_td = tf.subtract(self.CR3_v_target, self.CR3_v, name='CR3_TD_error')
-
                 with tf.name_scope('CR_A3_loss'):
                     self.CR3_log_prob = tf.reduce_sum(
                         tf.log(self.CR3_prob + 1e-2) * tf.one_hot(self.cr3_a, ACTION_DIMS, dtype=tf.float32), axis=1)
                     # policy loss
-                    self.CR3_exp_v = self.CR3_log_prob * tf.stop_gradient(self.CR3_td)
+                    self.CR3_exp_v = self.CR3_log_prob * tf.stop_gradient(self.CR_td) * self.C2C_var
                     # Regularizaiton with Policy Entropy
                     self.CR3_entropy = - tf.reduce_sum(self.CR3_prob * tf.log(self.CR3_prob + 1e-2), axis=1)
                     self.CR3_exp_v = ENTROPY_BETA * self.CR3_entropy - self.CR3_exp_v
                     self.CR3_A_loss = tf.reduce_mean(self.CR3_exp_v)
 
                 # ********************************************** Loss CR4*********************************************
-                self.CR4_v_target = self.CR_v_target[:, 3]
-                self.CR4_v = self.CR_v[:, 3]
-                self.CR4_td = tf.subtract(self.CR4_v_target, self.CR4_v, name='CR4_TD_error')
 
                 with tf.name_scope('CR_A4_loss'):
                     self.CR4_log_prob = tf.reduce_sum(
                         tf.log(self.CR4_prob + 1e-2) * tf.one_hot(self.cr4_a, ACTION_DIMS, dtype=tf.float32), axis=1)
-                    self.CR4_exp_v = self.CR4_log_prob * tf.stop_gradient(self.CR4_td)
+                    self.CR4_exp_v = self.CR4_log_prob * tf.stop_gradient(self.CR_td) * self.C2C_var
                     self.CR4_entropy = - tf.reduce_sum(self.CR4_prob * tf.log(self.CR4_prob + 1e-2), axis=1)
                     self.CR4_exp_v = ENTROPY_BETA * self.CR4_entropy - self.CR4_exp_v
                     self.CR4_A_loss = tf.reduce_mean(self.CR4_exp_v)
@@ -149,7 +139,6 @@ class A3Cnet(object):
                 with tf.name_scope('CR_C_loss'):
                     self.CR_td = tf.subtract(self.CR_v_target, self.CR_v, name='CR_TD_error')
                     self.CR_C_loss = tf.reduce_mean(tf.square(self.CR_td), axis=0)
-                    # self.CR_C_loss = tf.square(self.CR_td)
 
                 with tf.name_scope('CR_local_grad'):
                     self.CR1_A_grads = tf.gradients(self.CR1_A_loss, self.CR1_A_params)
@@ -396,7 +385,7 @@ class A3Cnet(object):
             # C_l3_bn = tf.layers.batch_normalization(inputs=l3, training=True)
             v = tf.layers.dense(
                 inputs=l3,
-                units=4,
+                units=1,
                 activation=tf.nn.leaky_relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),
                 bias_initializer=tf.constant_initializer(0.1),
@@ -589,15 +578,14 @@ class Worker(object):
                 buffer_CR4_r.append(reward_list[3])
                 buffer_CR_r.append(reward_list[-1])
 
-                # rewardCRList[0].append(copy.deepcopy(reward_list[0]))  # 用户1的reward
-                # rewardCRList[1].append(copy.deepcopy(reward_list[1]))
-                # rewardCRList[2].append(copy.deepcopy(reward_list[2]))
-                # rewardCRList[3].append(copy.deepcopy(reward_list[3]))  # 总体reward
-
                 rewardCRList[0].append(copy.deepcopy(qoe_list[0]))  # 用户1的reward
                 rewardCRList[1].append(copy.deepcopy(qoe_list[1]))
                 rewardCRList[2].append(copy.deepcopy(qoe_list[2]))
                 rewardCRList[3].append(copy.deepcopy(qoe_list[3]))  # 总体reward
+
+                # print the env info
+                if self.isPrint:
+                    self.printMidInfo(qoe_list, reward_list)
 
                 total_step += 1
 
@@ -614,15 +602,14 @@ class Worker(object):
 
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
                     CR_v_= SESS.run(self.AC.CR_v, feed_dict)
-                    CR_v_target = [[] for i in range(options.HostNum)]
-                    for h_index in range(options.HostNum):
-                        reward_CR_client = rewardCRList[h_index][::-1]
-                        value = CR_v_[0, h_index]
-                        for r in reward_CR_client:
-                            value = r + GAMMA * value
-                            CR_v_target[h_index].append(value)
+                    print("CR_v_: ", CR_v_)
+
+                    CR_v_target = []
+                    for r in buffer_CR_r[::-1]:    # 将下一个state的v评价进行一个反向衰减传递得到每一步的v现实
+                        CR_v_ = r + GAMMA * CR_v_
+                        CR_v_target.append(CR_v_)  # 将每一步的v现实都加入缓存中
                     CR_v_target.reverse()
-                    print("CR_v_target: ", CR_v_target, "\t\nCR_v_: ", CR_v_)
+                    print("CR_v_target: ", CR_v_target)
                     # *****************************************************************************************
                     ENV1 = buffer1_s
                     ENV2 = buffer2_s
@@ -639,33 +626,37 @@ class Worker(object):
                         self.AC.s_CR: ALLENV,    # (?, 32)
                         self.AC.s1_CR: ENV1,      # (?, 8)
                         self.AC.cr1_a: allCR1,   # (?, )  # 用于计算A loss
-                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 4))   # (?,4)
+                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1)),   # (?,4)
+                        self.AC.C2C_var: np.reshape(np.var([CC_real[0], c1_CC]), [-1, 1])
                     }
 
                     feed_dict_A2 = {
                         self.AC.s_CR: ALLENV,
                         self.AC.s2_CR: ENV2,
                         self.AC.cr2_a: allCR2,
-                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 4))
+                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1)),
+                        self.AC.C2C_var: np.reshape(np.var([CC_real[1], c2_CC]), [-1, 1])
                     }
 
                     feed_dict_A3 = {
                         self.AC.s_CR: ALLENV,
                         self.AC.s3_CR: ENV3,
                         self.AC.cr3_a: allCR3,
-                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 4))
+                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1)),
+                        self.AC.C2C_var: np.reshape(np.var([CC_real[2], c3_CC]), [-1, 1])
                     }
 
                     feed_dict_A4 = {
                         self.AC.s_CR: ALLENV,
                         self.AC.s4_CR: ENV4,
                         self.AC.cr4_a: allCR4,
-                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 4))
+                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1)),
+                        self.AC.C2C_var: np.reshape(np.var([CC_real[3], c4_CC]), [-1, 1])
                     }
 
                     feed_dict_C = {
                         self.AC.s_CR: ALLENV,
-                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 4))
+                        self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1))
                     }
 
                     # *********************************** Debug ******************************************************
@@ -736,15 +727,15 @@ if __name__ == "__main__":
 
         workers = []
         #
-        for i in range(N_WORKERS-1):
-            i_name = 'Worker_%i' % i
-            if i == 0:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
-            else:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
+        # for i in range(N_WORKERS-1):
+        #     i_name = 'Worker_%i' % i
+        #     if i == 0:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
+        #     else:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
 
-        # worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
-        # workers.append(worker)
+        worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
+        workers.append(worker)
 
     saver = tf.train.Saver(max_to_keep=1)
 
