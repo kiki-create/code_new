@@ -39,10 +39,10 @@ class Video(object):
 
 
 class Buffer(object):
-    def __init__(self, preResolution, size=15 * 6):
+    def __init__(self, preResolution, size=10 * 6):
         self.size = size
         self.data = []
-        self.data.append([preResolution, 10 * preResolution])
+        self.data.append([preResolution, 2 * preResolution])
         self.amount = 0.0
 
     def setSize(self, newSize):

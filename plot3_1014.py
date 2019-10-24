@@ -406,21 +406,39 @@ class A3Cnet(object):
         c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/Critic_CR')
         return v, c_params  # v(none,4)
 
-    def train_CR1(self, feed_dict):
-        SESS.run([self.update_CR1_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR1_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    # def train_CR1(self, feed_dict):
+    #     SESS.run([self.update_CR1_A_params_op, self.update_CR_C_params_op], feed_dict)
+    #     SESS.run([self.pull_CR1_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    #
+    # def train_CR2(self, feed_dict):
+    #     SESS.run([self.update_CR2_A_params_op, self.update_CR_C_params_op], feed_dict)
+    #     SESS.run([self.pull_CR2_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    #
+    # def train_CR3(self, feed_dict):
+    #     SESS.run([self.update_CR3_A_params_op, self.update_CR_C_params_op], feed_dict)
+    #     SESS.run([self.pull_CR3_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    #
+    # def train_CR4(self, feed_dict):
+    #     SESS.run([self.update_CR4_A_params_op, self.update_CR_C_params_op], feed_dict)
+    #     SESS.run([self.pull_CR4_A_params_op, self.pull_CR_C_params_op], feed_dict)
 
-    def train_CR2(self, feed_dict):
-        SESS.run([self.update_CR2_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR2_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A1(self, feed_dict):
+        SESS.run([self.update_CR1_A_params_op], feed_dict)
 
-    def train_CR3(self, feed_dict):
-        SESS.run([self.update_CR3_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR3_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A2(self, feed_dict):
+        SESS.run([self.update_CR2_A_params_op], feed_dict)
 
-    def train_CR4(self, feed_dict):
-        SESS.run([self.update_CR4_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR4_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A3(self, feed_dict):
+        SESS.run([self.update_CR3_A_params_op], feed_dict)
+
+    def update_A4(self, feed_dict):
+        SESS.run([self.update_CR4_A_params_op], feed_dict)
+
+    def update_C(self, feed_dict):
+        SESS.run([self.update_CR_C_params_op], feed_dict)
+
+    def pull_CR(self):
+        SESS.run([self.pull_CR1_A_params_op, self.pull_CR2_A_params_op, self.pull_CR3_A_params_op, self.pull_CR4_A_params_op, self.pull_CR_C_params_op])
 
     def choose_CR_p(self, actor_prob_op):
         CRList_d = np.random.choice(lib.CR_mapping_index, 1, p=actor_prob_op[0])
@@ -690,11 +708,13 @@ class Worker(object):
                     critic_loss.append(CR_C_loss[0])
 
                     #  *************************************************** Train **********************************************************
+                    self.AC.update_A1(feed_dict_A1)
+                    self.AC.update_A2(feed_dict_A2)
+                    self.AC.update_A3(feed_dict_A3)
+                    self.AC.update_A4(feed_dict_A4)
+                    self.AC.update_C(feed_dict_C)
 
-                    self.AC.train_CR1(feed_dict_A1)
-                    self.AC.train_CR2(feed_dict_A2)
-                    self.AC.train_CR3(feed_dict_A3)
-                    self.AC.train_CR4(feed_dict_A4)
+                    self.AC.pull_CR()
 
                     rewardCRList = [[] for _ in range(options.HostNum)]
                     buffer_s, buffer1_s, buffer2_s, buffer3_s, buffer4_s, \
@@ -736,15 +756,15 @@ if __name__ == "__main__":
 
         workers = []
         #
-        for i in range(N_WORKERS-1):
-            i_name = 'Worker_%i' % i
-            if i == 0:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
-            else:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
+        # for i in range(N_WORKERS-1):
+        #     i_name = 'Worker_%i' % i
+        #     if i == 0:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
+        #     else:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
 
-        # worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
-        # workers.append(worker)
+        worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
+        workers.append(worker)
 
     saver = tf.train.Saver(max_to_keep=1)
 

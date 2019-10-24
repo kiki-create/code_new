@@ -49,13 +49,13 @@ class Channel(object):
         self.capacityList = capacitylist
 
     def updateChannel(self):
-        # snr = self.updateSNR()  # 改变信道质量,暂时没打开
+        snr = self.updateSNR()  # 改变信道质量,暂时没打开
         capacity = self.disCC
         return capacity
 
     def updateSNR(self):
         norm = np.random.normal(loc=self.SNR, scale=0.015)
-        self.SNR = np.clip(norm, a_min=0.5, a_max=options.maxSNR)
+        self.SNR = np.clip(norm, a_min=0.8, a_max=options.maxSNR)
         return self.SNR
 
     def setDisCC(self, newDisCC):

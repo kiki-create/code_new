@@ -25,7 +25,7 @@ LOG_DIR = './log'
 N_WORKERS = multiprocessing.cpu_count()
 # N_WORKERS=1
 
-MAX_GLOBAL_EP = 3000  # the max iterations of global net
+MAX_GLOBAL_EP = 5000  # the max iterations of global net
 GLOBAL_NET_SCOPE = 'Global_Net'
 UPDATE_GLOBAL_ITER = 1  # the global net update every UPDATE_GLOBAL_ITER steps
 GAMMA = 0.9
@@ -35,9 +35,10 @@ LR_A = 0.005  # learning rate for actor
 LR_C = 0.01  # learning rate for critic
 
 GLOBAL_RUNNING_R = []  # total reward
-critic_loss = []
+critic_loss = []  # critic的loss，即td_error
+v_target = []
+v_ = []
 GLOBAL_EP = 0  # 中央大脑的步数
-
 # 每个Actor观测值的个数
 ENV_DIMS_new = 8
 # 动作空间维数
@@ -48,7 +49,7 @@ SNR_data_length = 10
 
 class A3Cnet(object):
     def __init__(self, scope, globalAC=None):
-        self.s_CR = tf.placeholder(tf.float32, [None, 4 * ENV_DIMS_new], "allEnv")
+
         self.C2C_var = tf.placeholder(tf.float32, [None, 1])
         if scope == GLOBAL_NET_SCOPE:  # create global network
             with tf.variable_scope(scope):
@@ -56,6 +57,7 @@ class A3Cnet(object):
                 self.s2_CR = tf.placeholder(tf.float32, [None, ENV_DIMS_new], "Env2")
                 self.s3_CR = tf.placeholder(tf.float32, [None, ENV_DIMS_new], "Env3")
                 self.s4_CR = tf.placeholder(tf.float32, [None, ENV_DIMS_new], "Env4")
+                self.s_CR = tf.placeholder(tf.float32, [None, 4 * ENV_DIMS_new], "allEnv")
 
                 # ************************ Net Model ***********************************
                 # Actor-Net
@@ -73,6 +75,7 @@ class A3Cnet(object):
                 self.s2_CR = tf.placeholder(tf.float32, [None,  ENV_DIMS_new], "Env2")
                 self.s3_CR = tf.placeholder(tf.float32, [None,  ENV_DIMS_new], "Env3")
                 self.s4_CR = tf.placeholder(tf.float32, [None,  ENV_DIMS_new], "Env4")
+                self.s_CR = tf.placeholder(tf.float32, [None, 4 * ENV_DIMS_new], "allEnv")
 
                 self.cr1_a = tf.placeholder(tf.int32, [None], "action_cr1")
                 self.cr2_a = tf.placeholder(tf.int32, [None], "action_cr2")
@@ -395,25 +398,29 @@ class A3Cnet(object):
         c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/Critic_CR')
         return v, c_params  # v(none,4)
 
-    def train_CR1(self, feed_dict):
-        SESS.run([self.update_CR1_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR1_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A1(self, feed_dict):
+        SESS.run([self.update_CR1_A_params_op], feed_dict)
 
-    def train_CR2(self, feed_dict):
-        SESS.run([self.update_CR2_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR2_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A2(self, feed_dict):
+        SESS.run([self.update_CR2_A_params_op], feed_dict)
 
-    def train_CR3(self, feed_dict):
-        SESS.run([self.update_CR3_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR3_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A3(self, feed_dict):
+        SESS.run([self.update_CR3_A_params_op], feed_dict)
 
-    def train_CR4(self, feed_dict):
-        SESS.run([self.update_CR4_A_params_op, self.update_CR_C_params_op], feed_dict)
-        SESS.run([self.pull_CR4_A_params_op, self.pull_CR_C_params_op], feed_dict)
+    def update_A4(self, feed_dict):
+        SESS.run([self.update_CR4_A_params_op], feed_dict)
+
+    def update_C(self, feed_dict):
+        SESS.run([self.update_CR_C_params_op], feed_dict)
+
+    def pull_CR(self):
+        SESS.run([self.pull_CR1_A_params_op, self.pull_CR2_A_params_op, self.pull_CR3_A_params_op, self.pull_CR4_A_params_op, self.pull_CR_C_params_op])
+
 
     def choose_CR_p(self, actor_prob_op):
         CRList_d = np.random.choice(lib.CR_mapping_index, 1, p=actor_prob_op[0])
         CR = lib.CR_mapping[CRList_d[0]]
+        print("CRList_d[0]", CRList_d[0])
         return CR, CRList_d[0]
 
 
@@ -595,21 +602,23 @@ class Worker(object):
 
                 if total_step % UPDATE_GLOBAL_ITER == 0:  # update global and assign to local net
                     print("GLOBAL_EP:", GLOBAL_EP)
-                    if self.isPrint:
-                        self.printMidInfo(qoe_list, reward_list)
+                    # print("buffer_CR_r: ", buffer_CR_r)
+                    # if self.isPrint:
+                    #     self.printMidInfo(qoe_list, reward_list)
 
                     env,  *s_env = utils1.env_state8(self.clientsExecResult)
 
                     feed_dict = {self.AC.s_CR: np.array(env).reshape((-1, 4 * ENV_DIMS_new))}
-                    CR_v_= SESS.run(self.AC.CR_v, feed_dict)
-                    print("CR_v_: ", CR_v_)
-
+                    CR_v_ = SESS.run(self.AC.CR_v, feed_dict)
+                    v_.append(CR_v_[0][0])
                     CR_v_target = []
+
                     for r in buffer_CR_r[::-1]:    # 将下一个state的v评价进行一个反向衰减传递得到每一步的v现实
-                        CR_v_ = r + GAMMA * CR_v_
+                        CR_v_ = r + GAMMA * CR_v_[0][0]
                         CR_v_target.append(CR_v_)  # 将每一步的v现实都加入缓存中
                     CR_v_target.reverse()
-                    print("CR_v_target: ", CR_v_target)
+                    # print("CR_v_target: ", CR_v_target)
+                    v_target.append(CR_v_target[0])
                     # *****************************************************************************************
                     ENV1 = buffer1_s
                     ENV2 = buffer2_s
@@ -624,7 +633,7 @@ class Worker(object):
                     # *****************************************************************************************
                     feed_dict_A1 = {
                         self.AC.s_CR: ALLENV,    # (?, 32)
-                        self.AC.s1_CR: ENV1,      # (?, 8)
+                        self.AC.s1_CR: ENV1,       # (?, 8)
                         self.AC.cr1_a: allCR1,   # (?, )  # 用于计算A loss
                         self.AC.CR_v_target: np.reshape(CR_v_target, (-1, 1)),   # (?,4)
                         self.AC.C2C_var: np.reshape(np.var([CC_real[0], c1_CC]), [-1, 1])
@@ -660,32 +669,36 @@ class Worker(object):
                     }
 
                     # *********************************** Debug ******************************************************
-                    CR1_A_loss = SESS.run(self.AC.CR1_A_loss, feed_dict_A1)
-                    print("-" * 30)
-                    print("CR1_A_loss:", CR1_A_loss)
+                    # CR1_A_loss = SESS.run(self.AC.CR1_A_loss, feed_dict_A1)
+                    # print("-" * 30)
+                    # # print("CR1_A_loss:", CR1_A_loss)
+                    #
+                    # CR2_A_loss = SESS.run(self.AC.CR2_A_loss, feed_dict_A2)
+                    # print("-" * 30)
+                    # # print("CR2_A_loss:", CR2_A_loss)
+                    #
+                    # CR3_A_loss = SESS.run(self.AC.CR3_A_loss, feed_dict_A3)
+                    # print("-" * 30)
+                    # # print("CR3_A_loss:", CR3_A_loss)
+                    #
+                    # CR4_A_loss = SESS.run(self.AC.CR4_A_loss, feed_dict_A4)
+                    # print("-" * 30)
+                    # # print("CR4_A_loss:", CR4_A_loss)
+                    #
+                    # CR_C_loss = SESS.run(self.AC.CR_C_loss, feed_dict_C)
+                    # # print("CR_C_loss", CR_C_loss)
+                    #
+                    # critic_loss.append(CR_C_loss[0])
 
-                    CR2_A_loss = SESS.run(self.AC.CR2_A_loss, feed_dict_A2)
-                    print("-" * 30)
-                    print("CR2_A_loss:", CR2_A_loss)
 
-                    CR3_A_loss = SESS.run(self.AC.CR3_A_loss, feed_dict_A3)
-                    print("-" * 30)
-                    print("CR3_A_loss:", CR3_A_loss)
+                    # *************************************************** Train **********************************************************
+                    self.AC.update_A1(feed_dict_A1)
+                    self.AC.update_A2(feed_dict_A2)
+                    self.AC.update_A3(feed_dict_A3)
+                    self.AC.update_A4(feed_dict_A4)
+                    self.AC.update_C(feed_dict_C)
 
-                    CR4_A_loss = SESS.run(self.AC.CR4_A_loss, feed_dict_A4)
-                    print("-" * 30)
-                    print("CR4_A_loss:", CR4_A_loss)
-
-                    CR_C_loss = SESS.run(self.AC.CR_C_loss, feed_dict_C)
-                    print("CR_C_loss", CR_C_loss)
-                    critic_loss.append(CR_C_loss[0])
-
-                    #  *************************************************** Train **********************************************************
-
-                    self.AC.train_CR1(feed_dict_A1)
-                    self.AC.train_CR2(feed_dict_A2)
-                    self.AC.train_CR3(feed_dict_A3)
-                    self.AC.train_CR4(feed_dict_A4)
+                    self.AC.pull_CR()
 
                     rewardCRList = [[] for _ in range(options.HostNum)]
                     buffer_s, buffer1_s, buffer2_s, buffer3_s, buffer4_s, \
@@ -726,7 +739,7 @@ if __name__ == "__main__":
         GLOBAL_AC = A3Cnet(GLOBAL_NET_SCOPE)
 
         workers = []
-        #
+
         # for i in range(N_WORKERS-1):
         #     i_name = 'Worker_%i' % i
         #     if i == 0:
@@ -755,18 +768,12 @@ if __name__ == "__main__":
     plt.figure(1)
     plt.plot(np.arange(len(GLOBAL_RUNNING_R)), GLOBAL_RUNNING_R, color="black")
     plt.xlabel('step')
-    plt.ylabel('Total moving reward')
+    plt.ylabel('plot3_1022: Total moving reward')
 
     plt.figure(2)
-    plt.plot(np.arange(len(critic_loss)), critic_loss, color="red")
-    # plt.plot(np.arange(len(GLOBAL_RUNNING_Reso_R)), GLOBAL_RUNNING_Reso_R, color="red")
-    # plt.plot(np.arange(len(episode_r)), episode_r, color="blue")
-    # plt.plot(np.arange(len(error)), error, color="red")
-    # plt.plot(np.arange(len(vlist)), vlist, color="green")
-    # plt.plot(np.arange(len(vtlist)), vtlist, color="yellow")
-    # plt.plot(np.arange(len(aloss)), aloss, color="black")
-
+    plt.plot(np.arange(len(v_target)), np.array(v_target), color="red")
+    plt.plot(np.arange(len(v_)), v_, color="black")
     plt.xlabel('step')
-    plt.ylabel('Total moving c_loss')
+    plt.ylabel('plot3_1022: the gap between v_target and v')
     plt.show()
 

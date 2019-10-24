@@ -10,11 +10,11 @@ buffer_CR = [[] for i in range(options.HostNum)]
 buffer_RR = [[] for i in range(options.HostNum)]
 
 # 各QoE指标的权重因子
-R_weight = 1
+R_weight = 2
 emptyTime_weight = 1
-RR_var_weight = 0.5
+RR_var_weight = 1.5
 weigh_CR_weight = 0.5
-fullTime_weight = 0
+fullTime_weight = 0.5
 
 
 def env_state8(clientExecResult):
@@ -52,8 +52,8 @@ def env_state8(clientExecResult):
         clientInfo = clientExecResult[clientName]
 
         # the info of CC
-        disCC = clientInfo.get('disCC')
-        # disCC = 0
+        # disCC = clientInfo.get('disCC')
+        disCC = 0
         disCC_percent = disCC / options.serverCC
         # disCC_percent = 0
         # The info of RR
@@ -62,8 +62,8 @@ def env_state8(clientExecResult):
         fullTime = clientInfo.get("fullTime") / options.JudgeDuration
         emptyTime = clientInfo.get("emptyTime") / options.JudgeDuration
 
-        client_info = [meanSNR[index], disCC, RR, bf_pre_percent[index][-1], bf_cur_percent[index][-1], fullTime, emptyTime, disCC_percent]
-
+        client_info = [meanSNR[index]/options.maxSNR, disCC/options.serverCC, RR/6, bf_pre_percent[index][-1], bf_cur_percent[index][-1], fullTime, emptyTime, disCC_percent]
+        print("客户 {0} 的环境信息： ", client_info)
         env_state.append(client_info)
     c1_state, c2_state, c3_state, c4_state = env_state[0], env_state[1], env_state[2], env_state[3]
 

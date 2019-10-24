@@ -31,7 +31,7 @@ parser.add_option("-n", "--hostnum", action="store", type="int", dest="HostNum",
                 default=4, help="The number of cients under central-server")
 
 parser.add_option("--totalCC", action="store", type="int", dest="serverCC",
-                default=6, help="The CC of central-server referred to 802.11g")
+                default=10, help="The CC of central-server referred to 802.11g")
 
 parser.add_option("--totalBW", action="store", type="int", dest="serverBW",
                 default=15, help="The CC of central-server referred to 802.11g")
@@ -40,7 +40,7 @@ parser.add_option("--bufferSize", action="store", type="int", dest="bufferSize",
                 default=10 * 6,
                 help="The BW of central-server referred to 802.11g")
 
-parser.add_option("--maxSNR", action="store", type="int", dest="maxSNR", default=3.5,
+parser.add_option("--maxSNR", action="store", type="int", dest="maxSNR", default=1.5,
                 help="The maximum of SNR towards every channel")
 
 parser.add_option("--saveDir", action="store", type="string", dest="modelSaveDir",

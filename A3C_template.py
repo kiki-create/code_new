@@ -1,11 +1,10 @@
-import multiprocessing  #多线程模块
-import threading  #线程模块
-import tensorflow as tf
-import numpy as np
+import multiprocessing  # 多线程模块
+import threading  # 线程模块
+
 import gym
-import os
-import shutil  #拷贝文件用
 import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
 
 Game='CartPole-v0'
 N_workers=multiprocessing.cpu_count()    #独立玩家个体数为cpu数
