@@ -55,7 +55,7 @@ class Channel(object):
 
     def updateSNR(self):
         norm = np.random.normal(loc=self.SNR, scale=0.015)
-        self.SNR = np.clip(norm, a_min=0.8, a_max=options.maxSNR)
+        self.SNR = np.clip(norm, a_min=options.minSNR, a_max=options.maxSNR)
         return self.SNR
 
     def setDisCC(self, newDisCC):
@@ -103,7 +103,9 @@ class Channel(object):
                 # ploting
                 plt.plot(SNRList)
                 print("SNR mean:", np.mean(SNRList))
-                plt.ylim([0, 3.5])
+                plt.ylim([options.minSNR, options.maxSNR])
+                plt.xlabel("t")
+                plt.ylabel("SNR")
                 plt.show()
                 SNRList = []
 

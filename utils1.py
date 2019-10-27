@@ -10,11 +10,11 @@ buffer_CR = [[] for i in range(options.HostNum)]
 buffer_RR = [[] for i in range(options.HostNum)]
 
 # 各QoE指标的权重因子
-R_weight = 2
-emptyTime_weight = 1
-RR_var_weight = 1.5
-weigh_CR_weight = 0.5
-fullTime_weight = 0.5
+R_weight = 1.5
+emptyTime_weight = 0.5
+RR_var_weight = 0.5
+weigh_CR_weight = 0.0
+fullTime_weight = 1
 
 
 def env_state8(clientExecResult):
@@ -63,7 +63,7 @@ def env_state8(clientExecResult):
         emptyTime = clientInfo.get("emptyTime") / options.JudgeDuration
 
         client_info = [meanSNR[index]/options.maxSNR, disCC/options.serverCC, RR/6, bf_pre_percent[index][-1], bf_cur_percent[index][-1], fullTime, emptyTime, disCC_percent]
-        print("客户 {0} 的环境信息： ", client_info)
+        # print("客户 {0} 的环境信息： ".format(index), client_info)
         env_state.append(client_info)
     c1_state, c2_state, c3_state, c4_state = env_state[0], env_state[1], env_state[2], env_state[3]
 
@@ -280,7 +280,6 @@ def adjust_CC(disCC, snr):
         sorted_Snr = sorted(snr.items(), key=lambda x: x[1], reverse=True)  # 按照snr从高到低排序
         # -----------------------------------------debug----------------------------------------------------------------
         # 如果每个人信噪比相同 均匀分配bw, 那么实际的CC也是相同的
-
         if len(set(snr_list)) == 1:
             for i in range(options.HostNum):
                 CC_real.append(np.log2(1 + snr_list[0]) * options.serverBW / options.HostNum)
@@ -318,8 +317,59 @@ def adjust_CC(disCC, snr):
             CC_real.append(round(BW_rank["c" + str(i + 1)] * np.log2(1 + snr["c" + str(i + 1)]), 3))
         return CC_real
 
+# 带宽永远平均分配 avg-Pensieve
+def adjust_CC2(disCC, snr):
+    """
+    根据带宽调整CC，模拟路由器带宽分配规则
+    :param disCC: 神经网络分配的CC list
+    :param snr: 用户的snr dictionary
+    :return: 每个用户的传输数据的实际速率
+    """
+    snr_list = []
+    CC_real = []
+    for i in range(options.HostNum):
+        snr_list.append(snr["c" + str(i + 1)])
+    for i in range(options.HostNum):
+        CC_real.append(np.log2(1 + snr_list[0]) * options.serverBW / options.HostNum)
+    return CC_real
+
+
+# Greedy-Pensieve
+def adjust_CC3(disCC, snr):
+    """
+    贪婪分配，给snr好的用户更多的带宽
+    """
+    disBW = {}  # 按照公式算的每个人的bw
+    BW_rank = {}
+    CC_real = []
+    snr_list = []
+    for i in range(options.HostNum):
+        disBW["c" + str(i + 1)] = (disCC[i] / np.log2(1 + snr["c" + str(i + 1)]))
+        snr_list.append(snr["c" + str(i + 1)])
+    sorted_Snr = sorted(snr.items(), key=lambda x: x[1], reverse=True)  # 按照snr从高到低排序
+    # -----------------------------------------debug----------------------------------------------------------------
+    # 如果每个人信噪比相同 均匀分配bw, 那么实际的CC也是相同的
+    if len(set(snr_list)) == 1:
+        for i in range(options.HostNum):
+            CC_real.append(np.log2(1 + snr_list[0]) * options.serverBW / options.HostNum)
+        return CC_real
+    # -----------------------------------------debug----------------------------------------------------------------
+    print("sorted_Snr", sorted_Snr)
+    print("disBW", disBW)
+    CC_real_dict = {}
+    totalBW = options.serverBW
+    for i in range(options.HostNum):
+        if disBW.get(sorted_Snr[i][0]) <= totalBW:
+            CC_real_dict[sorted_Snr[i][0]] = np.log2(1 + sorted_Snr[i][1]) * disBW.get(sorted_Snr[i][0])
+            totalBW -= disBW.get(sorted_Snr[i][0])
+        else:
+            CC_real_dict[sorted_Snr[i][0]] = 0
+    for i in range(options.HostNum):
+        CC_real.append(CC_real_dict.get("c" + str(i + 1)))
+    return CC_real
+
 
 if __name__ == '__main__':
     disCC = [20, 20, 20, 20]
-    snr = {"c1": 1, "c2": 2, "c3": 3, "c4": 4}
-    print(adjust_CC(disCC, snr))
+    snr = {"c1": 2, "c2": 1, "c3": 4, "c4": 3}
+    print(adjust_CC3(disCC, snr))

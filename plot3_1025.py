@@ -1,7 +1,6 @@
 """
 此版改动：
-所有Actor用统一的td_error更新
-Critic输出一维的V值
+仿真专用~
 """
 
 import copy
@@ -25,7 +24,7 @@ LOG_DIR = './log'
 N_WORKERS = multiprocessing.cpu_count()
 # N_WORKERS=1
 
-MAX_GLOBAL_EP = 3000  # the max iterations of global net
+MAX_GLOBAL_EP = 3500  # the max iterations of global net
 GLOBAL_NET_SCOPE = 'Global_Net'
 UPDATE_GLOBAL_ITER = 1  # the global net update every UPDATE_GLOBAL_ITER steps
 GAMMA = 0.9
@@ -434,13 +433,14 @@ class Worker(object):
     def printMidInfo(self, qoe_list, reward_list):
         print('-=' * 50, "Slot of: ", self.name, "=-" * 50)
         # 最后100步存数据给matlab画图
-        if GLOBAL_EP > MAX_GLOBAL_EP - 100:
-             Buffer_data.append([])
-             CC.append([])
-             RR.append([])
-             QoE.append([])
-             Reward.append([])
-             # SNR.append([])
+        if GLOBAL_EP >= MAX_GLOBAL_EP - 100:
+             # Buffer_data.append([])
+             CC.append([])      # real channel capacity
+             RR.append([])      # 决策的bitrate
+             QoE.append([])   # 单个每个用户的QoE
+             Reward.append([])  # 总体的QoE
+             SNR.append([])  # 存储实时的snr
+             Empty_time.append([])
 
         for index in range(options.HostNum):
             clientName = 'c' + str(index + 1)
@@ -459,14 +459,16 @@ class Worker(object):
             instantSNR = clientUnitInfo.get("SNR")
             instantSNR_uni = instantSNR
 
-            if GLOBAL_EP > MAX_GLOBAL_EP - 100:
+            #  -------------------------------------------存数据专用------------------------------------------------------------
+            if GLOBAL_EP >= MAX_GLOBAL_EP - 100:
                 CC[-1].append(capa)
                 RR[-1].append(reso)
-                # SNR[-1].append(instantSNR)
+                SNR[-1].append(instantSNR)
                 # "Buffer_data": Buffer_data, "ChannelCapacity": CC, "Bitrate": RR, "QoE": QoE, "Reward": Reward
-                Buffer_data[-1].append(buffer.amount)
+                # Buffer_data[-1].append(buffer.amount)
                 QoE[-1].append(qoe_list[index])
                 Reward[-1].append(reward_list[-1])  # 总体QoE
+                Empty_time[-1].append(emptyTime)
 
 
             print(
@@ -600,6 +602,10 @@ class Worker(object):
                     break
 
                 if total_step % UPDATE_GLOBAL_ITER == 0:  # update global and assign to local net
+                    print("GLOBAL_EP:", GLOBAL_EP)
+                    # print("buffer_CR_r: ", buffer_CR_r)
+                    # if self.isPrint:
+                    #     self.printMidInfo(qoe_list, reward_list)
 
                     env,  *s_env = utils1.env_state8(self.clientsExecResult)
 
@@ -719,6 +725,8 @@ if __name__ == "__main__":
     RR = []
     QoE = []
     Reward = []
+    SNR = []
+    Empty_time = []
 
     vlist = []
     vtlist = []
@@ -735,15 +743,15 @@ if __name__ == "__main__":
 
         workers = []
 
-        for i in range(N_WORKERS-1):
-            i_name = 'Worker_%i' % i
-            if i == 0:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
-            else:
-                workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
+        # for i in range(N_WORKERS-1):
+        #     i_name = 'Worker_%i' % i
+        #     if i == 0:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=True))
+        #     else:
+        #         workers.append(Worker(i_name, GLOBAL_AC, isPrint=False))
 
-        # worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
-        # workers.append(worker)
+        worker = Worker('worker_%i' % (N_WORKERS - 1), GLOBAL_AC, isPrint=True)
+        workers.append(worker)
 
     saver = tf.train.Saver(max_to_keep=1)
 
@@ -757,7 +765,9 @@ if __name__ == "__main__":
         worker_threads.append(t)
     COORD.join(worker_threads)
 
-    sio.savemat("res.mat", {"Buffer_data": Buffer_data, "ChannelCapacity": CC, "Bitrate": RR, "QoE": QoE, "Reward": Reward})
+    # 存数据给matlab画图
+
+    sio.savemat("res_1026_2.mat", {"ChannelCapacity": CC, "Bitrate": RR, "QoE": QoE, "Reward": Reward, "Empty": Empty_time, "SNR": SNR})
 
     # saver.save(SESS, options.modelSaveDir)
     plt.figure(1)

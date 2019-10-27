@@ -5,8 +5,8 @@ Author: LS, WQ
 Date: 2019/03/01
 video.py provides the definition of class Video
 """
-import lib
-import numpy as np
+
+from config import options
 
 
 class Video(object):
@@ -39,7 +39,7 @@ class Video(object):
 
 
 class Buffer(object):
-    def __init__(self, preResolution, size=10 * 6):
+    def __init__(self, preResolution, size=options.bufferSize):
         self.size = size
         self.data = []
         self.data.append([preResolution, 2 * preResolution])

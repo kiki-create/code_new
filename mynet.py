@@ -13,7 +13,7 @@ from video import Video
 
 
 class myNet(object):
-    def __init__(self, hostNum=4):
+    def __init__(self, hostNum = options.HostNum):
         # Set the total BW of the central-server
         self.serverCC = options.serverCC
         self.hostNum = hostNum
@@ -29,11 +29,11 @@ class myNet(object):
         resoList = [6, 4, 2, 1]
         for i in range(self.hostNum):
             # init_reso = resoList[np.random.randint(4)]
-            init_reso = resoList[0]
+            init_reso = resoList[1]
             # init_reso = resoList[len(resoList) - 1 - i]
             c = Client(name="c{}".format(i + 1),
                        channel=Channel(initCC=options.serverCC / 4, initSNR=initSNR[i]),
-                       video=Video(resolution=init_reso), bufferSize=10 * 6)
+                       video=Video(resolution=init_reso), bufferSize=options.bufferSize)
             self.clients[c.name] = c
 
     def getClient(self, name):

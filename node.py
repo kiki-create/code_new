@@ -37,7 +37,7 @@ class Server(object):
 
 
 class Client(object):
-    def __init__(self, name, channel, video=None, bufferSize = 30 * 6):
+    def __init__(self, name, channel, video=None, bufferSize = options.bufferSize):
         self.name = name
         self.channel = channel
         self.video = video

@@ -46,4 +46,4 @@ def adjust_CC(disCC, snr):
 
 
 if __name__ == '__main__':
-    print(np.square(-2.1624894-(-0.05461812)))
+    print(np.log2(3.5))
